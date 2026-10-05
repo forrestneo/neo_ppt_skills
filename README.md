@@ -44,7 +44,7 @@
 
 ```bash
 python scripts/use_bank_all.py find 客户分层     # 按主题搜页
-python scripts/use_bank_all.py build -o 成品.pptx 页码 "新标题"
+python scripts/use_bank_all.py build 页码 "新标题"   # 输出固定为 bank_all_out.pptx
 ```
 
 ## 备线：图片矢量复刻

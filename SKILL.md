@@ -29,7 +29,7 @@ description: 以 GordenSuperPPTSkill 为主线的端到端 PPT 生产技能：�
 ```bash
 python3 scripts/use_bank_all.py find 客户分层      # 按主题搜页
 python3 scripts/use_bank_all.py show 页码          # 看槽位与容量
-python3 scripts/use_bank_all.py build -o 成品.pptx 页码 "新标题"
+python3 scripts/use_bank_all.py build 页码 "新标题"   # 输出固定为 bank_all_out.pptx
 ```
 
 页面 use_for 带来源标签（如 `bank16·内容版式：客户分层…`），选页不破坏叙事；
