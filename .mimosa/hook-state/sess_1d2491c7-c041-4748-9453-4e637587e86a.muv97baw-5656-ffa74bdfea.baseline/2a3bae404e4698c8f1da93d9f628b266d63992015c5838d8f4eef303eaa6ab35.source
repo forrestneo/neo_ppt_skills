@@ -1,0 +1,101 @@
+# -*- coding: utf-8 -*-
+"""bank-all 模板调用工具
+  python3 use_bank_all.py find 关键词            # 按主题搜页（查 use_for/标题）
+  python3 use_bank_all.py show 页码              # 看某页版式与可编辑槽位
+  python3 use_bank_all.py build -o 输出.pptx 页码 "新标题" [页码 "标题" ...]
+                                             [--set 页码:slot_id=文本 ...]
+  不记 slot_id 时只给 页码+新标题 即可（自动命中该页 title_slot）。
+"""
+import sys, os, json, subprocess, tempfile
+sys.stdout.reconfigure(encoding="utf-8")
+HERE = os.path.dirname(os.path.abspath(__file__))
+TPL = os.environ.get("BANK_TPL", os.path.normpath(os.path.join(HERE, "..", "templates", "bank-all")))
+BUILD = os.environ.get("NEO_BUILD", os.path.join(HERE, "build_pptx.py"))
+
+def load():
+    return json.load(open(os.path.join(TPL, "detail.json"), encoding="utf-8"))
+
+def page_title(d, pg):
+    p = d["pages"][pg - 1]
+    ts = next((x for x in p["text_slots"] if x["slot_id"] == p.get("title_slot_id")), None)
+    return (ts or {}).get("current_text", "(无标题槽)")
+
+def cmd_find(kw):
+    d = load()
+    kw = kw.lower()
+    hits = []
+    for p in d["pages"]:
+        hay = (p["use_for"] + " " + page_title(d, p["slide_number"])).lower()
+        if kw in hay:
+            hits.append(p)
+    print(f"共 {len(hits)} 页命中「{kw}」：")
+    for p in hits[:40]:
+        print(f"  第{p['slide_number']:>3}页  {p['use_for'][:70]}")
+    if len(hits) > 40:
+        print(f"  ...（其余 {len(hits)-40} 页略）")
+
+def cmd_show(pg):
+    d = load()
+    p = d["pages"][pg - 1]
+    print(f"第{pg}页  [{p['role']}]  密度:{p['text_density']}")
+    print("use_for:", p["use_for"])
+    ts = next((x for x in p["text_slots"] if x["slot_id"] == p.get("title_slot_id")), None)
+    if ts:
+        print(f"标题槽: {ts['slot_id']}  现:「{ts['current_text'][:36]}」  容量≈{ts['max_chars']}字")
+    ed = [x for x in p["text_slots"] if x["editable"]][:14]
+    print(f"可编辑槽位（前{len(ed)}个 / 共{len(p['text_slots'])}个）:")
+    for x in ed:
+        print(f"  {x['slot_id']}  <{x['role']}>  ≤{x['max_chars']}字  现:「{x['current_text'][:24]}」")
+
+def cmd_build(argv):
+    out = "bank_all_out.pptx"
+    if "-o" in argv:
+        i = argv.index("-o"); out = argv[i + 1]; del argv[i:i + 2]
+    sets = []
+    if "--set" in argv:
+        while "--set" in argv:
+            i = argv.index("--set"); sets.append(argv[i + 1]); del argv[i:i + 2]
+    pairs = list(zip(argv[0::2], argv[1::2]))
+    if not pairs and not sets:
+        print("用法: build -o 输出.pptx 页码 \"新标题\" ... [--set 页码:slot_id=文本 ...]")
+        return
+    d = load()
+    slides, edits = [], []
+    for pg, title in pairs:
+        pg = int(pg)
+        p = d["pages"][pg - 1]
+        slides.append(pg)
+        if p.get("title_slot_id"):
+            edits.append({"slide": pg, "slot_id": p["title_slot_id"], "new_text": title})
+        else:
+            print(f"⚠ 第{pg}页无标题槽，标题「{title}」未替换")
+    for spec in sets:
+        pg, rest = spec.split(":", 1)
+        slot, txt = rest.split("=", 1)
+        slides.append(int(pg))
+        edits.append({"slide": int(pg), "slot_id": slot, "new_text": txt})
+    slides = sorted(set(slides))
+    spec = {"template_slug": "bank-all", "selected_slides": slides, "edits": edits}
+    tmp = os.path.join(tempfile.gettempdir(), "bank_all_edits.json")
+    json.dump(spec, open(tmp, "w", encoding="utf-8"), ensure_ascii=False)
+    r = subprocess.run([sys.executable, BUILD,
+                        os.path.join(TPL, "template.pptx"), tmp, out,
+                        "--detail", os.path.join(TPL, "detail.json")],
+                       capture_output=True, text=True)
+    tail = (r.stdout + r.stderr).strip().splitlines()
+    for ln in tail[-3:]:
+        print(ln)
+    if "Saved" in (r.stdout + r.stderr):
+        print("✓ 已生成:", os.path.abspath(out))
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__)
+    elif sys.argv[1] == "find":
+        cmd_find(sys.argv[2])
+    elif sys.argv[1] == "show":
+        cmd_show(int(sys.argv[2]))
+    elif sys.argv[1] == "build":
+        cmd_build(sys.argv[2:])
+    else:
+        print(__doc__)

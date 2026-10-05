@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "mimosa-finding-history/v1",
+  "runId": "20261005T125622652Z-268-f9391db2a666",
+  "runStatus": "inconclusive",
+  "errors": [
+    "baseline-read:extras/audit_quality.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/fix_colors.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/merge_template.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/ocr_extract.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/pixrep.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/rep_lib.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:extras/wechat_dl.py: baseline_snapshot_unreadable: file is missing from task baseline",
+    "scan:extras/audit_quality.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/fix_colors.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/merge_template.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/ocr_extract.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/pixrep.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/rep_lib.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:extras/wechat_dl.py: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+  ],
+  "target": ".",
+  "revision": null,
+  "diffHash": "958cb84e1731547a9c8905eaa83fff5080f57de643abdc4800937c7a1b93021c",
+  "rulesVersion": "unavailable",
+  "recordedAt": "2026-10-05T12:56:22.652Z",
+  "timing": {
+    "startedAt": "2026-10-05T12:56:19.531Z",
+    "completedAt": "2026-10-05T12:56:22.652Z",
+    "durationMs": 3121
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "modelCalls": 0,
+    "measurement": "known-zero"
+  },
+  "findings": {
+    "total": 0,
+    "bySeverity": {},
+    "byStatus": {}
+  },
+  "coverage": {
+    "status": "partial",
+    "reasonCounts": {
+      "baseline_snapshot_unreadable": 7,
+      "scanner_failed": 7,
+      "project_check_failed": 14
+    }
+  },
+  "evidenceBoundary": "static_only",
+  "immutableReport": ".mimosa/reports/task-review-sess_1d2491c7-c041-4748-9453-4e637587e86a-20261005T125622652Z-268-f9391db2a666.json"
+}
