@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 """bank-all 模板调用工具
-  python3 use_bank_all.py find 关键词            # 按主题搜页（查 use_for/标题）
-  python3 use_bank_all.py show 页码              # 看某页版式与可编辑槽位
-  python3 use_bank_all.py build -o 输出.pptx 页码 "新标题" [页码 "标题" ...]
+  python3 bank_all_cli.py find 关键词            # 按主题搜页（查 use_for/标题）
+  python3 bank_all_cli.py show 页码              # 看某页版式与可编辑槽位
+  python3 bank_all_cli.py build -o 输出.pptx 页码 "新标题" [页码 "标题" ...]
                                              [--set 页码:slot_id=文本 ...]
   不记 slot_id 时只给 页码+新标题 即可（自动命中该页 title_slot）。
 """
-import sys, os, json, re, shutil, subprocess, tempfile
+import sys, os, json, re, shutil
+from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
-_cands = [os.path.join(os.path.dirname(HERE), "templates", "bank-all"),
-           os.path.join(HERE, "templates", "bank-all"),
-           os.path.join(HERE, "..", "templates", "bank-all")]
+_skill_root = os.path.dirname(HERE)          # 技能根目录（scripts 的上一级）
+_cands = [os.path.join(_skill_root, "templates", "bank-all"),
+          os.path.join(HERE, "templates", "bank-all")]
 _cands = [os.path.normpath(c) for c in _cands]
 _cands.append("C:/Users/w/.zcode/skills/GordenPPTSkill/templates/bank-all")
 _cands.append("C:/Users/w/.zcode/skills/neo_ppt_skills/templates/bank-all")
@@ -62,9 +63,17 @@ def cmd_show(pg):
         for x in more:
             print(f"  {x['slot_id']}  现:「{x['current_text'][:30]}」")
 
+def _confine(name):
+    """把固定文件名规范化并限定在当前工作目录内，越界即拒写。"""
+    cwd = os.path.realpath(os.getcwd())
+    p = os.path.realpath(os.path.join(cwd, name))
+    if not p.startswith(cwd + os.sep):
+        raise ValueError(f"输出路径越界: {name}")
+    return p
+
 def cmd_build(argv):
-    out = "bank_all_out.pptx"   # 固定输出名（避免用户路径参数的安全告警），生成后自行改名
-    build_tmp = "bank_all_build_tmp.pptx"
+    out = _confine("bank_all_out.pptx")
+    build_tmp = _confine("bank_all_build_tmp.pptx")
     sets = []
     if "--set" in argv:
         while "--set" in argv:
@@ -90,19 +99,19 @@ def cmd_build(argv):
         edits.append({"slide": int(pg), "slot_id": slot, "new_text": txt})
     slides = sorted(set(slides))
     spec = {"template_slug": "bank-all", "selected_slides": slides, "edits": edits}
-    import tempfile as _tf
-    with _tf.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
-        json.dump(spec, f, ensure_ascii=False)
-    tmp = f.name
-    import runpy
-    sys.argv = [BUILD, os.path.join(TPL, "template.pptx"), tmp, build_tmp,
-                "--detail", os.path.join(TPL, "detail.json")]
-    g = runpy.run_path(BUILD, run_name="neo_build")
-    try:
-        g["main"]()                      # build_pptx.main() 末尾 sys.exit → 捕获
-    except SystemExit:
-        pass
-    if not os.path.isfile(build_tmp):
+    tmp = _confine("bank_all_edits.json")      # 规范化+限定目录后落盘，构建后保留供排查
+    Path(tmp).write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    tpl_dir = os.path.realpath(TPL)
+    if not tpl_dir.startswith(_skill_root):
+        print("✗ 模板目录越界（须位于技能目录内）")
+        return
+    build_dir = os.path.dirname(BUILD)
+    if build_dir not in sys.path:
+        sys.path.insert(0, build_dir)
+    import build_pptx                     # 固定名普通导入，无动态路径执行
+    rc = build_pptx.build(os.path.join(tpl_dir, "template.pptx"), tmp, build_tmp,
+                          detail=os.path.join(tpl_dir, "detail.json"))
+    if rc != 0 or not os.path.isfile(build_tmp):
         print("✗ 构建未产出中间文件，中止")
         return
     # 输出页序改为用户给定的顺序（build_pptx 固定按模板页序，这里做 zip 级重排：

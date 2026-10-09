@@ -1,6 +1,6 @@
 ---
 name: neo_ppt_skills
-description: 以 GordenSuperPPTSkill 为主线的端到端 PPT 生产技能：阶段一用 imagegen 逐页生成「图片型 PPT」，阶段二把每页图四层还原为可编辑 PPTX（背景图/骨架图/元素图标/真文本），同时交付图片型 PPT 与可编辑 PPTX。另内置 bank-all（27 套 577 页）与 bank-lite（18 套 339 页）银行营销合辑模板的 GordenPPTSkill 快线换字，以及图片矢量复刻备选管线。当用户要"端到端出一份既好看又能编辑的 PPT"、"按主题/文章出 PPT"、"用 bank 模板换字出稿"、"把图片转成可编辑 PPTX"时使用。
+description: 以 GordenSuperPPTSkill 为主线的端到端 PPT 生产技能：阶段一用 imagegen 逐页生成「图片型 PPT」，阶段二把每页图四层还原为可编辑 PPTX（背景图/骨架图/元素图标/真文本），同时交付图片型 PPT 与可编辑 PPTX。另内置 bank-all（27 套 577 页）与 bank-lite（18 套 339 页）商务演示全场景合辑模板的 GordenPPTSkill 快线换字，以及图片矢量复刻备选管线。当用户要"端到端出一份既好看又能编辑的 PPT"、"按主题/文章出 PPT"、"用合辑模板换字出稿"、"把图片转成可编辑 PPTX"时使用。
 ---
 
 # neo_ppt_skills
@@ -23,13 +23,13 @@ description: 以 GordenSuperPPTSkill 为主线的端到端 PPT 生产技能：�
 ## 快线：模板换字（无 imagegen 环境的默认出稿方式）
 
 `templates/` 内置两套合辑模板（`bank-lite` 339 页精选 / `bank-all` 577 页全量，
-由 27 套银行 PPT 矢量复刻成品合并，原生形状+真文本框），配 GordenPPTSkill
+由 27 套商务 PPT 矢量复刻成品合并，原生形状+真文本框），配 GordenPPTSkill
 三件套脚本与一键调用器：
 
 ```bash
-python3 scripts/use_bank_all.py find 客户分层      # 按主题搜页
-python3 scripts/use_bank_all.py show 页码          # 看槽位与容量
-python3 scripts/use_bank_all.py build 页码 "新标题"   # 输出固定为 bank_all_out.pptx
+python3 scripts/bank_all_cli.py find 客户分层      # 按主题搜页
+python3 scripts/bank_all_cli.py show 页码          # 看槽位与容量
+python3 scripts/bank_all_cli.py build 页码 "新标题"   # 输出固定为 bank_all_out.pptx
 ```
 
 页面 use_for 带来源标签（如 `bank16·内容版式：客户分层…`），选页不破坏叙事；
@@ -47,7 +47,7 @@ GordenSuperPPTSkill/   # 主线编排技能（含 references/pipeline.md 运行�
 GordenImagePPTGen/     # 阶段1：imagegen 图片型 PPT（含提示词体系与脚本）
 GordenImage2PPTX/      # 阶段2：四层还原为可编辑 PPTX（compose/chroma_key/slice_grid）
 templates/             # bank-lite 339 页 + bank-all 577 页合辑模板
-scripts/               # GordenPPTSkill 引擎三件套 + use_bank_all.py 调用器
+scripts/               # GordenPPTSkill 引擎三件套 + bank_all_cli.py 调用器
 extras/                # 备选：矢量复刻管线与质量审计
 ```
 

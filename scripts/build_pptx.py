@@ -311,6 +311,16 @@ def run(args) -> int:
     return 0
 
 
+def build(template, edits, output, detail=None, strict=False,
+          dry_run=False, no_lint=False) -> int:
+    """Programmatic entry point: identical to the CLI, with explicit arguments."""
+    from types import SimpleNamespace
+    return run(SimpleNamespace(
+        template=Path(template), edits=Path(edits), output=Path(output),
+        detail=Path(detail) if detail else None,
+        strict=strict, dry_run=dry_run, no_lint=no_lint))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("template", type=Path)

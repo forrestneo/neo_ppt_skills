@@ -4,15 +4,21 @@
 内容 → imagegen 逐页生成图片型 PPT → 四层还原（背景图/骨架图/元素图标/真文本）
 → **既好看又可编辑的 PPTX**，图片型与可编辑双成品一次交付。
 
-另内置 **bank-all（27 套 577 页）/ bank-lite（18 套 339 页）银行营销合辑模板**
+另内置 **bank-all（27 套 577 页）/ bank-lite（18 套 339 页）商务演示全场景合辑模板**
 的 GordenPPTSkill 快线换字，以及一条不依赖 imagegen 的图片矢量复刻备选管线。
+
+模板覆盖：工作总结、运营方案、销售管理、客户经营、AI 落地、管理方法论、
+流程图/时间轴/架构图版式——**内容骨架各行各业通用**，替换文字即得成品。
+
+> 📖 **新人上手教程**：[docs/教程-从文章到可编辑PPT.md](docs/教程-从文章到可编辑PPT.md)
+> ——手把手走完"写文章 → 拆分出页 → 生成图片 → 转成可编辑 PPT"全流程。
 
 ## 三条产线
 
 | 产线 | 依赖 | 何时用 |
 |---|---|---|
 | **主线 · Super 端到端** | Codex 宿主 + imagegen（硬门禁） | 要"既好看又能编辑"的完整成品，视觉自由度最高 |
-| **快线 · 模板换字** | 仅 python-pptx | 有现成内容，用内置 bank 合辑模板选页换字，分钟级出稿 |
+| **快线 · 模板换字** | 仅 python-pptx | 有现成内容，用内置合辑模板选页换字，分钟级出稿 |
 | **备线 · 矢量复刻** | rapidocr + ppt-master（可选） | 手里已有 PPT 图片/截图，要逐页重建为可编辑 |
 
 ## 主线：GordenSuperPPTSkill 端到端
@@ -33,23 +39,37 @@
 必须 imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，
 不得用代码绘图冒充出图。
 
-## 快线：bank 合辑模板换字
+## 快线：合辑模板换字
 
 `templates/` 内置两套合辑（每页 use_for 带来源标签，槽位级容量已算）：
 
 | 模板 | 页数 | 内容 |
 |---|---|---|
-| `templates/bank-lite` | 339 | 18 套精华（银行经营 14 + AI 落地 2 + 咨询方法 1 + 通用版式 1） |
-| `templates/bank-all` | 577 | 27 套全量存档 |
+| `templates/bank-lite` | 339 | 18 套精华（工作总结/运营方案/销售管理/客户经营/AI 落地/方法论版式） |
+| `templates/bank-all` | 577 | 27 套全量存档（含 bank-lite 未收录篇目） |
 
 ```bash
-python scripts/use_bank_all.py find 客户分层     # 按主题搜页
-python scripts/use_bank_all.py build 页码 "新标题"   # 输出固定为 bank_all_out.pptx
+# 标准流程：写 edits.json（选页+槽位替换）→ build_pptx 出稿
+python scripts/build_pptx.py templates/bank-lite/template.pptx edits.json 成品.pptx --detail templates/bank-lite/detail.json
 ```
+
+edits.json 示例（schema 与 GordenPPTSkill 模式 A 一致）：
+
+```json
+{
+  "selected_slides": [280, 284, 24],
+  "edits": [
+    {"slide": 280, "slot_id": "p280s19x0", "new_text": "某银行零售客户分层运营方案"},
+    {"slide": 284, "slot_id": "p284s3x0", "new_text": "分层与分类的逻辑关系"}
+  ]
+}
+```
+
+槽位与容量从对应 `detail.json` 查询；AI Agent 模式下由 Agent 自动完成。
 
 ## 备线：图片矢量复刻
 
-`extras/` 收录微信文章下载器、OCR 坐标级重建（文字按原图坐标原位落位）、
+`extras/` 收录微信文章取图、OCR 坐标级重建（文字按原图坐标原位落位）、
 ppt-master 代理施工规格与三工艺编排手册，流程见 `extras/pipeline.md`。
 
 ## 安装
@@ -73,5 +93,5 @@ pip install python-pptx
 
 ## 版权
 
-bank 合辑全部页面由作者对公开微信文章预览图做逐页矢量重绘而来，非第三方
+合辑全部页面由作者对公开商务 PPT 预览图做逐页矢量重绘而来，非第三方
 模板素材，可自由使用与二次修改。Gorden 系技能版权归原作者。
