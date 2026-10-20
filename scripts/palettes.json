@@ -1,0 +1,96 @@
+{
+  "$schema": "neo-ppt-palettes/1",
+  "rule": "整套 PPT 只允许使用一套配色主题（hue 环形距离 ≤30°）；跨主题用色会被 palette_check.py 拒绝",
+  "themes": [
+    {
+      "id": "blue-corporate",
+      "name": "商务蓝 Business Blue",
+      "hue": 216,
+      "primary": "003584",
+      "secondary": "2F6AD4",
+      "accents": [
+        "1F4E79",
+        "2E75B6",
+        "5B9BD5",
+        "BDD7EE"
+      ],
+      "source_banks": [
+        "bank01",
+        "bank02",
+        "bank03",
+        "bank09",
+        "bank12",
+        "bank15"
+      ],
+      "use_cases": [
+        "金融",
+        "科技",
+        "通用商务"
+      ]
+    },
+    {
+      "id": "red-gov",
+      "name": "典雅红 Classic Red",
+      "hue": 356,
+      "primary": "B01F24",
+      "secondary": "C43B00",
+      "accents": [
+        "C00000",
+        "D64A00",
+        "E8B34B"
+      ],
+      "source_banks": [
+        "bank05",
+        "bank10",
+        "bank11"
+      ],
+      "use_cases": [
+        "政务",
+        "庆典",
+        "年报"
+      ]
+    },
+    {
+      "id": "orange-vitality",
+      "name": "活力橙 Vibrant Orange",
+      "hue": 18,
+      "primary": "C43B00",
+      "secondary": "D84200",
+      "accents": [
+        "E8590C",
+        "F4B183",
+        "FFD966"
+      ],
+      "source_banks": [
+        "bank13",
+        "bank20"
+      ],
+      "use_cases": [
+        "营销",
+        "运营",
+        "活动"
+      ]
+    },
+    {
+      "id": "teal-fresh",
+      "name": "青绿清新 Teal Fresh",
+      "hue": 160,
+      "primary": "0F6B5C",
+      "secondary": "2E9E8F",
+      "accents": [
+        "38A89D",
+        "81C7BC",
+        "CFF5EE"
+      ],
+      "source_banks": [
+        "bank14",
+        "bank22"
+      ],
+      "use_cases": [
+        "环保",
+        "健康",
+        "数据"
+      ]
+    }
+  ]
+}

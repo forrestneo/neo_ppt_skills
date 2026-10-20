@@ -1,0 +1,14 @@
+{
+  "$schema": "neo-ppt-templates/1",
+  "families": [
+    {
+      "id": "deck-all",
+      "name": "商务演示全场景合辑（27 套 577 页，原生形状+真文本框）",
+      "enabled": true,
+      "deck": "templates/deck-all/template.pptx",
+      "detail": "templates/deck-all/detail.json.gz",
+      "detail_format": "gzip+minjson；engine 需透明解压（bank_all_cli.load / build_pptx.load_slot_index）",
+      "note": "deck-lite（18 套 339 页）为其字节级子集，已移除；需要精集合辑时用 detail 的 use_for 标签（bank01..bank27 前缀）筛选即可"
+    }
+  ]
+}

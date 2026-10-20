@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+bank_all_out.pptx
+bank_all_build_tmp.pptx
+bank_all_edits.json
+*.log
+.DS_Store
+Thumbs.db

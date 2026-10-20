@@ -1,0 +1,212 @@
+# neo_ppt_skills
+
+**中文** ｜ [English](#english)
+
+端到端中文/双语 PPT 生产技能：内容 → 逐页出图 → 四层还原 → **既美观又可编辑的 PPTX**。
+行业中立——内容骨架全行业通用，中英文均可出稿。
+
+End-to-end PPT production skill for Chinese/bilingual decks: content → page images →
+four-layer restoration → **beautiful AND editable PPTX**. Domain-neutral content
+skeletons, Chinese and English output.
+
+> 📖 新人上手教程（中文）：[docs/教程-从文章到可编辑PPT.md](docs/教程-从文章到可编辑PPT.md)
+
+---
+
+## 目录结构（中文）
+
+**三条产线**
+
+| 产线 | 依赖 | 何时用 |
+|---|---|---|
+| **主线 · Super 端到端** | Codex 宿主 + imagegen（硬门禁） | 要"既好看又能编辑"的完整成品，视觉自由度最高 |
+| **快线 · 合辑模板换字** | 仅 python-pptx | 有现成内容，用内置合辑模板选页换字，分钟级出稿 |
+| **备线 · 矢量复刻** | rapidocr + ppt-master（可选） | 手里已有 PPT 图片/截图，要逐页重建为可编辑 |
+
+### 主线：GordenSuperPPTSkill 端到端
+
+三个子技能收录在本仓库（`GordenSuperPPTSkill/`、`GordenImagePPTGen/`、
+`GordenImage2PPTX/`），编排规则以
+[`GordenSuperPPTSkill/references/pipeline.md`](GordenSuperPPTSkill/references/pipeline.md) 为准：
+
+```
+内容 → 阶段1 outline+imagegen 逐页出图 → 图片型 PPT
+     → 阶段2 每页四层还原（背景图/骨架图/元素图标/真文本）
+     → 可编辑 PPTX + 全部中间产物
+```
+
+**硬门禁**：阶段 1 每页必须真实调用 imagegen；阶段 2 的三个图片层同样必须
+imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，不得用代码绘图冒充出图。
+
+### 快线：合辑模板换字（deck-all，577 页）
+
+`templates/deck-all` 是 27 套商务演示版式的矢量合辑（577 页，每页 use_for 带
+`bankNN·` 来源套号），内容骨架覆盖：工作总结、运营方案、销售管理、客户经营、
+AI 落地、管理方法论、流程图/时间轴/架构图。**骨架行业无关**——页面里的示例
+文案只是占位，出稿时全部正文槽位会按 12pt 排版重写。
+
+```bash
+# Agent 一键流程（选页 + 换字 + 三重门禁 + 末步配色检查）
+python scripts/deck_cli.py find 客户分层          # 按主题搜页
+python scripts/deck_cli.py show 24                # 看槽位与 12pt 写作预算
+python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
+    --set 24:p24s16x0=正文文案按预算写
+
+# 或直接用引擎：edits.json（选页+槽位替换）→ build_pptx 出稿
+python scripts/build_pptx.py templates/deck-all/template.pptx edits.json 成品.pptx \
+    --detail templates/deck-all/detail.json.gz
+```
+
+edits.json 示例（中文稿）：
+
+```json
+{
+  "selected_slides": [280, 284],
+  "edits": [
+    {"slide": 280, "slot_id": "p280s19x0", "new_text": "零售客户分层运营方案"},
+    {"slide": 284, "slot_id": "p284s3x0", "new_text": "分层与分类的逻辑关系"}
+  ]
+}
+```
+
+英文稿同理——容量按视觉宽度自动换算（1 个汉字 ≈ 2 个英文字符），字体沿用
+模板的 latin 槽位：
+
+```json
+{
+  "selected_slides": [4],
+  "edits": [
+    {"slide": 4, "slot_id": "p4s16x0", "new_text": "Risks under control"}
+  ]
+}
+```
+
+### 备线：图片矢量复刻
+
+`extras/` 收录微信文章取图、OCR 坐标级重建（文字按原图坐标原位落位）、
+ppt-master 代理施工规格与三工艺编排手册，流程见 `extras/pipeline.md`。
+
+## 编辑铁律（引擎强制，非建议）
+
+以下规则固化在 `scripts/build_pptx.py` 出稿引擎与 `tests/eval_slim.py`（57 项
+回归基线）里，违反即拒绝出稿，`--allow-*` 旗标为显式豁免：
+
+| 铁律 | 内容 | 引擎行为 |
+|---|---|---|
+| **正文 12pt（小四）** | 出稿正文一律小四号（作用域=role「正文」槽位；标题/卡头/序号/mockup 缩微标签豁免） | 换字时自动把选中页全部正文槽位置 12pt；字数超 12pt 容量直接拒绝 |
+| **写作预算前置** | 每槽 12pt 容量在 `show 页码` 里逐槽可见（`12pt≤N字`） | 按预算写文案，超容量即拒，精炼措辞而非缩字号 |
+| **配色体系统一** | 整套 PPT 主导色相必须同系（环形差 ≤30°）；标准配色四套见 `scripts/palettes.json` | 跨色系混选拒绝出稿 |
+| **出稿末步配色检查** | 扫描成品全部页面的实际用色，杂色页（过半饱和用色出系）不得交付 | `palette_check.py` 自动执行，不通过退出码 3 |
+
+中文字号→pt 换算：初号42 / 小初36 / 一号26 / 二号22 / 小二18 / 三号16 /
+四号14 / **小四12** / 五号10.5 / 小五9 / 六号7.5 / 七号5.5 / 八号5。
+
+标准配色主题（`scripts/palettes.json`）：商务蓝 Business Blue（金融/科技/通用）、
+典雅红 Classic Red（政务/庆典/年报）、活力橙 Vibrant Orange（营销/运营/活动）、
+青绿清新 Teal Fresh（环保/健康/数据）。整套稿选一套贯穿，不发明体系外颜色。
+
+## 安装
+
+```bash
+git clone <本仓库> ~/.zcode/skills/neo_ppt_skills
+pip install python-pptx          # 快线依赖
+# 主线依赖：Codex 宿主 + imagegen；备线依赖：pip install rapidocr-onnxruntime
+# 渲染预览建议 LibreOffice
+```
+
+## 仓库体积
+
+全仓 **8.53 MiB**：模板 6.3MB（577 页矢量合辑、91,700 个矢量形状，deflate 已至
+压缩比地板）+ 参考图 1.9MB + 脚本/文档/评测 0.4MB。压缩手段：detail 走
+minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内嵌 PNG 量化 256 色、
+参考图 JPEG q72。
+
+## 质量口径
+
+- 可编辑成品一律为原生形状 + 真文本框（主线的背景/骨架/图标层为图片，按
+  Super 规范交付；快线与备线为 0 图片对象的全原生）
+- 快线槽位级容量与字号层级已经几何计算，出稿前过 12pt 容量硬校验与配色体系检查
+- 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
+- **57 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+  边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
+
+## 版权
+
+合辑全部页面由作者对公开商务 PPT 预览图做逐页矢量重绘而来，非第三方模板
+素材，可自由使用与二次修改。Gorden 系技能版权归原作者。
+
+---
+
+# English
+
+End-to-end PPT production skill for Chinese and bilingual decks: content →
+page images → four-layer restoration → **beautiful AND editable PPTX**, in one
+run. Domain-neutral: the content skeletons work for any industry — banking,
+retail, tech, healthcare, government — you replace every text slot when
+authoring, in Chinese or English.
+
+> Tutorial (Chinese): [docs/教程-从文章到可编辑PPT.md](docs/教程-从文章到可编辑PPT.md)
+
+## Three pipelines
+
+| Pipeline | Requires | Use when |
+|---|---|---|
+| **Main · Super end-to-end** | Codex host + imagegen (hard gate) | Full deliverable, both beautiful and editable |
+| **Fast · Template refill** | python-pptx only | You have content; pick pages from the bundled collection, refill slots, done in minutes |
+| **Fallback · Vector re-build** | rapidocr + ppt-master (optional) | You have slide images/screenshots that must become editable |
+
+## Fast pipeline: the deck-all collection (577 pages)
+
+`templates/deck-all` is a vector collection merged from 27 business slide
+decks: work reports, operations plans, sales, customer management, AI
+adoption, methodology, flow/timeline/architecture layouts. The skeletons are
+industry-agnostic — sample copy inside is placeholder only; at build time
+**every body slot is re-typeset at 12pt (CEO-four, 小四)** with your content.
+
+```bash
+python scripts/deck_cli.py find customer          # search pages by topic
+python scripts/deck_cli.py show 24                # slots + 12pt writing budget
+python scripts/deck_cli.py build -o deck.pptx 24 "New Title" \
+    --set 24:p24s16x0=Body copy within budget
+```
+
+English works out of the box: slot capacity is measured in visual width units
+(1 CJK char ≈ 2 latin chars), the overflow gate converts automatically, and
+text keeps the template's latin typeface slot.
+
+## Editing iron rules (engine-enforced, not advice)
+
+Codified in `scripts/build_pptx.py` and guarded by `tests/eval_slim.py`
+(57-item regression baseline). Violations refuse to save; `--allow-*` flags
+are explicit opt-outs:
+
+| Rule | Meaning | Engine behavior |
+|---|---|---|
+| **Body ≥ 12pt (小四)** | All body slots (role=正文) are typeset at 12pt; titles/chips/numerals/mockup micro-text exempt | Body slots auto-set to 12pt on refill; text over the 12pt capacity is rejected |
+| **Budget-first writing** | Each slot's 12pt budget is visible via `show` (`12pt≤N units`) | Write within budget; condense wording instead of shrinking fonts |
+| **One palette per deck** | Dominant hue of every selected page must belong to one system (circular distance ≤30°); four standard themes in `scripts/palettes.json` | Mixed-system selection is rejected |
+| **Final palette check** | The finished file is scanned for actual colors; pages with >50% off-system accent mass cannot ship | `palette_check.py` runs automatically; exit code 3 on failure |
+
+Chinese font size → pt: 初号42 / 小初36 / 一号26 / 二号22 / 小二18 / 三号16 /
+四号14 / **小四12** / 五号10.5 / 小五9 / 六号7.5 / 七号5.5 / 八号5.
+
+## Install
+
+```bash
+git clone <this repo> ~/.zcode/skills/neo_ppt_skills
+pip install python-pptx
+# Main pipeline: Codex host + imagegen. Fallback: pip install rapidocr-onnxruntime
+# LibreOffice recommended for render previews.
+```
+
+## Repo size
+
+**8.53 MiB** total: templates 6.3MB (577-page vector collection, 91,700 vector
+shapes — deflate is already at the compression floor) + reference images 1.9MB
++ scripts/docs/tests 0.4MB.
+
+## License
+
+All collection pages are hand vector-redraws by the author from public
+business-PPT previews (not third-party template assets) — free to use and
+modify. Gorden skills copyright their respective authors.
