@@ -129,69 +129,47 @@ def theme_color_list(theme: dict) -> list:
 
 
 # ------------------------------------------------------------------
-# 组件簇：把一页的顶层形状按 bbox 重叠连通聚成"组件"（一张卡片=一个组件）
+# 组件：一页的顶层形状（含组合）即"组件"——建模板时卡片/面板已按组分好。
+# 跨页组装 = 深拷贝组件元素到画布页 + 平移自身 off（组合 chOff 不动，纯平移）。
 # ------------------------------------------------------------------
-def _bbox(shape):
-    if shape.left is None or shape.top is None:
-        return None
-    return (shape.left, shape.top,
-            shape.left + (shape.width or 0), shape.top + (shape.height or 0))
-
-
-def _overlaps(a, b, tol=9525):  # 容差 0.75pt
-    return not (a[2] + tol <= b[0] or b[2] + tol <= a[0]
-                or a[3] + tol <= b[1] or b[3] + tol <= a[1])
-
-
-def shape_clusters(slide) -> list:
-    """返回组件簇列表：[{idx, bbox:(l,t,r,b), shapes:[shape]}]，按面积降序。"""
-    shapes = [sh for sh in slide.shapes if sh.left is not None]
-    rects = {id(sh): _bbox(sh) for sh in shapes}
-    parent = {i: i for i in range(len(shapes))}
-
-    def find(i):
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
-    def union(i, j):
-        parent[find(i)] = find(j)
-
-    for i in range(len(shapes)):
-        for j in range(i + 1, len(shapes)):
-            ri, rj = rects[id(shapes[i])], rects[id(shapes[j])]
-            if _overlaps(ri, rj):
-                union(i, j)
-    groups = {}
-    for i, sh in enumerate(shapes):
-        groups.setdefault(find(i), []).append(sh)
+def component_texts(sh) -> list:
     out = []
-    for members in groups.values():
-        bs = [rects[id(m)] for m in members]
-        bbox = (min(b[0] for b in bs), min(b[1] for b in bs),
-                max(b[2] for b in bs), max(b[3] for b in bs))
-        out.append({"bbox": bbox, "shapes": members,
-                    "area": (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])})
-    out.sort(key=lambda c: -c["area"])
-    for i, c in enumerate(out):
-        c["idx"] = i
+    if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+        for sub in sh.shapes:
+            out += component_texts(sub)
+    elif sh.has_text_frame and sh.text_frame.text.strip():
+        out.append(sh.text_frame.text.replace("\n", " ").strip())
     return out
 
 
-def copy_cluster(dst_slide, cluster, dx: int, dy: int) -> int:
-    """把组件簇的形状深拷贝到目标页并整体平移 (dx,dy) EMU。返回拷贝数。"""
+def top_components(slide) -> list:
+    """返回组件列表：[{idx, shape, bbox:(l,t,r,b), texts, area}]，按面积降序。"""
+    comps = []
+    for sh in slide.shapes:
+        if sh.left is None:
+            continue
+        r = (sh.left, sh.top, sh.left + (sh.width or 0), sh.top + (sh.height or 0))
+        comps.append({"idx": len(comps), "shape": sh, "bbox": r,
+                      "texts": component_texts(sh),
+                      "area": (r[2] - r[0]) * (r[3] - r[1])})
+    comps.sort(key=lambda c: -c["area"])
+    for i, c in enumerate(comps):
+        c["idx"] = i
+    return comps
+
+
+def copy_component(dst_slide, shape, dx: int = 0, dy: int = 0):
+    """深拷贝组件元素到目标页，平移 (dx,dy) EMU。只平移自身 off——
+    组合子元素在 chOff 子坐标系中，平移组合 off 即整体平移，无二次偏移。
+    返回粘贴后的新元素。"""
     import copy as _copy
-    n = 0
-    for sh in cluster["shapes"]:
-        el = _copy.deepcopy(sh._element)
-        # 平移：所有 a:off（顶层与组内层级统一按同一 delta 平移即可）
-        for off in el.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}off"):
-            off.set("x", str(int(off.get("x", 0)) + dx))
-            off.set("y", str(int(off.get("y", 0)) + dy))
-        dst_slide.shapes._spTree.append(el)
-        n += 1
-    return n
+    el = _copy.deepcopy(shape._element)
+    off = el.find(".//{http://schemas.openxmlformats.org/drawingml/2006/main}off")
+    if off is not None:
+        off.set("x", str(int(off.get("x", 0)) + dx))
+        off.set("y", str(int(off.get("y", 0)) + dy))
+    dst_slide.shapes._spTree.append(el)
+    return el
 
 
 # 整套配色体系（铁律）：所有选中页的主导色相必须同属一个体系（环形距离 ≤30°）
@@ -486,54 +464,79 @@ def run(args) -> int:
               f"可酌情用更精炼的措辞重写；但**不要截断加省略号**，也不要改字号——"
               f"宁可轻微超出。", file=sys.stderr)
 
-    # ---- 组件组装：从其它页复制组件簇到画布页（偏移落位 + 文案覆盖 + 12pt） ----
-    thr = float(getattr(args, 'min_font', None) or MIN_FONT_PT)
-    if compose_spec:
-        from pptx.util import Emu as _Emu
-        EMU_IN = 914400
-        total_copied = 0
-        for cs in compose_spec:
-            base_idx = int(cs["base"])
-            base_slide = prs.slides[base_idx - 1]
-            for item in cs.get("add", []):
-                src_idx = int(item["slide"])
+    # ---- 组件组装（声明式栅格）：rows 自动缩放/分布/对齐 ----
+    thr = float(getattr(args, "min_font", None) or MIN_FONT_PT)
+    ns_t = "{http://schemas.openxmlformats.org/drawingml/2006/main}t"
+    ns_rpr = "{http://schemas.openxmlformats.org/drawingml/2006/main}rPr"
+    ns_ext = "{http://schemas.openxmlformats.org/drawingml/2006/main}ext"
+    ns_off = "{http://schemas.openxmlformats.org/drawingml/2006/main}off"
+    PAGE_W, PAGE_H = 13.333, 7.5
+    MARGIN, GAP_X = 0.5, 0.35
+    content_w = PAGE_W - 2 * MARGIN
+    total_pasted = 0
+    for entry in compose_spec:
+        base_idx = int(entry["base"])
+        base_slide = prs.slides[base_idx - 1]
+        for row in entry.get("rows", []):
+            y_cur = float(row.get("y", PAGE_H - MARGIN))
+            row_h = float(row.get("h", 2.4))
+            items = []
+            for it in row.get("items", []):
+                src_idx, ci = int(it[0]), int(it[1])
+                comps = top_components(prs.slides[src_idx - 1])
+                if not (0 <= ci < len(comps)):
+                    print(f"WARN: compose 页 {src_idx} 组件 {ci} 不存在，跳过", file=sys.stderr)
+                    continue
+                items.append((src_idx, comps[ci]))
+            if not items:
+                continue
+            placed = []
+            for src_idx, comp in items:
+                bw = comp["bbox"][2] - comp["bbox"][0]
+                bh = comp["bbox"][3] - comp["bbox"][1]
+                sc = min(row_h * 914400 / bh, 9.9) if bh > 0 else 1.0
+                placed.append((src_idx, comp, sc, bw * sc))
+            widths = [w for _, _, _, w in placed]
+            total_w = sum(widths) + GAP_X * (len(placed) - 1)
+            if total_w > content_w and total_w > 0:
+                k = (content_w - GAP_X * (len(placed) - 1)) / total_w
+                placed = [(si, c, g, w * k) for si, c, g, w in placed]
+                widths = [w * k for w in widths]
+                total_w = sum(widths) + GAP_X * (len(placed) - 1)
+            x_cur = MARGIN + (content_w - total_w) / 2
+            for src_idx, comp, sc, w_in in placed:
                 src_slide = prs.slides[src_idx - 1]
-                clusters = shape_clusters(src_slide)
-                ci = int(item.get("component", 0))
-                if ci < 0 or ci >= len(clusters):
-                    print(f"WARN: compose slide {src_idx} 组件 {ci} 不存在（共 {len(clusters)} 簇），跳过",
-                          file=sys.stderr)
-                    continue
-                cluster = clusters[ci]
-                bl, bt, br, bb = cluster["bbox"]
-                at = item.get("at")  # 英寸 [x, y]（组件左上角目标位置）
-                if at:
-                    dx, dy = int(at[0] * EMU_IN) - bl, int(at[1] * EMU_IN) - bt
-                else:
-                    dx = dy = 0
-                copied = copy_cluster(base_slide, cluster, dx, dy)
-                total_copied += copied
-                # 文案覆盖：对复制后的形状按"原文子串"替换（保格式）
-                for old, new in (item.get("texts") or {}).items():
-                    for sh in base_slide.shapes:
-                        if not sh.has_text_frame:
-                            continue
-                        for para in sh.text_frame.paragraphs:
-                            for r in para.runs:
-                                if old in (r.text or ""):
-                                    r.text = r.text.replace(old, new)
-                print(f"compose: 页{src_idx} 组件{ci}（{copied} 形状）→ 页{base_idx}"
-                      + (f" @ {at}" if at else ""))
-            # 复制进来的文字统一提到 12pt（铁律：组件文案也算正文）
-            for sh in base_slide.shapes:
-                if not sh.has_text_frame:
-                    continue
-                for para in sh.text_frame.paragraphs:
-                    for r in para.runs:
-                        if r.text.strip() and (r.font.size is None or r.font.size.pt < thr - 1e-6):
-                            r.font.size = Pt(thr)
-        if total_copied:
-            print(f"组件组装完成：共复制 {total_copied} 个形状", file=sys.stderr)
+                w_em = int(w_in * 914400)
+                dx = int(x_cur * 914400) - comp["bbox"][0] * sc * 914400
+                dy = int(y_cur * 914400) - comp["bbox"][1] * sc * 914400
+                import copy as _copy
+                el = _copy.deepcopy(comp["shape"]._element)
+                # 重编 shape id：与页内现有形状去重（LibreOffice 会丢弃重复 id 的形状）
+                used = set()
+                for e2 in base_slide.shapes._spTree.iter():
+                    if e2.tag.endswith('}cNvPr'):
+                        used.add(int(e2.get('id', 0)))
+                nid = max(used) + 1 if used else 1
+                for cnv in el.iter():
+                    if cnv.tag.endswith('}cNvPr'):
+                        cnv.set('id', str(nid)); nid += 1
+                off = el.find('.//' + ns_off)
+                if off is not None:
+                    off.set("x", str(int(off.get("x", 0)) + dx))
+                    off.set("y", str(int(off.get("y", 0)) + dy))
+                for ext in el.iter(ns_ext):
+                    ext.set("cx", str(int(int(ext.get("cx", 0)) * sc)))
+                    ext.set("cy", str(int(int(ext.get("cy", 0)) * sc)))
+                for rpr in el.iter(ns_rpr):
+                    v = rpr.get("sz")
+                    if v:
+                        rpr.set("sz", str(int(int(v) * sc)))
+                base_slide.shapes._spTree.append(el)
+                x_cur += w_in + GAP_X
+                total_pasted += 1
+    if total_pasted:
+        print(f"组件栅格组装完成：共粘贴 {total_pasted} 个组件", file=sys.stderr)
+
 
     # ---- 配色主题化：选中页饱和用色统一映射到目标主题（默认自动取多数主色最近的
     #      标准主题；--theme 指定主题 id）。中性色不动，末步配色检查因此必然通过。 ----
@@ -627,6 +630,40 @@ def run(args) -> int:
                       "或显式加 --allow-small-font 豁免。", file=sys.stderr)
                 return 5
 
+    # ---- 字体统一（可选）：--font 楷体 等，选中页所有文本 run 统一字体
+    #      （latin + ea 双槽位都写，中文才能真正生效）。----
+    font_req = getattr(args, "font", None)
+    if font_req:
+        from pptx.oxml.ns import qn as _qn
+
+        def _set_run_font(run, name):
+            run.font.name = name
+            rPr = run._r.get_or_add_rPr()
+            for tag in ("a:ea", "a:cs"):
+                el = rPr.find(_qn(tag))
+                if el is None:
+                    el = rPr.makeelement(_qn(tag), {})
+                    rPr.append(el)
+                el.set("typeface", name)
+
+        def _walk(shapes):
+            for sh in shapes:
+                if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    yield from _walk(sh.shapes)
+                elif sh.has_text_frame:
+                    yield sh
+
+        n_font = 0
+        for sn in selected:
+            for sh in _walk(prs.slides[sn - 1].shapes):
+                for para in sh.text_frame.paragraphs:
+                    for r in para.runs:
+                        if not r.text.strip():
+                            continue
+                        _set_run_font(r, font_req)
+                        n_font += 1
+        print(f"字体统一：{n_font} 个文本 run 已设为「{font_req}」", file=sys.stderr)
+
     # 整套配色体系（铁律，默认强制）：选中页主导色相必须同属一系；
     # --allow-mixed-palette 显式豁免降级为警告。
     pal = load_page_palette(Path(args.template))
@@ -666,7 +703,7 @@ def run(args) -> int:
 def build(template, edits, output, detail=None, strict=False,
           dry_run=False, no_lint=False, min_font=MIN_FONT_PT,
           allow_small_font=False, no_min_font=False,
-          allow_mixed_palette=False, theme=None) -> int:
+          allow_mixed_palette=False, theme=None, font=None) -> int:
     """Programmatic entry point: identical to the CLI, with explicit arguments."""
     from types import SimpleNamespace
     return run(SimpleNamespace(
@@ -675,7 +712,7 @@ def build(template, edits, output, detail=None, strict=False,
         strict=strict, dry_run=dry_run, no_lint=no_lint,
         min_font=min_font, allow_small_font=allow_small_font,
         no_min_font=no_min_font, allow_mixed_palette=allow_mixed_palette,
-        theme=theme))
+        theme=theme, font=font))
 
 
 def main() -> int:
@@ -692,6 +729,12 @@ def main() -> int:
                     help="显式豁免最小字号铁律（降级为警告，默认拒绝出稿）")
     ap.add_argument("--no-min-font", action="store_true",
                     help="关闭最小字号门禁")
+    ap.add_argument("--theme", default=None,
+                    help="统一到指定配色主题（palettes.json 的 id；默认自动选多数主色最近的标准主题）")
+    ap.add_argument("--allow-mixed-palette", action="store_true",
+                    help="显式豁免：跨色系页选违反时降级为警告（默认拒绝出稿）")
+    ap.add_argument("--font", default=None,
+                    help="统一文本字体（如 楷体；默认保留模板字体）")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()

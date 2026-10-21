@@ -62,6 +62,23 @@ def cmd_find(kw):
     if len(hits) > 40:
         print(f"  ...（其余 {len(hits)-40} 页略）")
 
+def cmd_components(pg):
+    """列出某页的组件（顶层形状/组合），供 compose 组装挑选。"""
+    from pptx import Presentation
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    import build_pptx as bp
+    tpl_dir = os.path.realpath(TPL)
+    prs = Presentation(os.path.join(tpl_dir, "template.pptx"))
+    slide = prs.slides[pg - 1]
+    comps = bp.top_components(slide)
+    EMU = 914400
+    print(f"第{pg}页 共 {len(comps)} 个组件（顶层形状/组合，按面积降序）")
+    for c in comps:
+        summary = " / ".join(c["texts"])[:46] or "（无文字，纯图形）"
+        x, y = c["bbox"][0] / EMU, c["bbox"][1] / EMU
+        print(f"  组件{c['idx']:>3}  位置({x:5.2f},{y:5.2f})in  {summary}")
 def load_palette():
     pal = os.path.join(TPL, "palette.json")
     if os.path.isfile(pal):
@@ -116,6 +133,7 @@ def cmd_build(argv):
     sets = []
     allow_small_font = allow_mixed = False
     theme_id = None
+    font_id = "楷体"
     while "--set" in argv:
         i = argv.index("--set"); sets.append(argv[i + 1]); del argv[i:i + 2]
     if "--allow-small-font" in argv:
@@ -127,6 +145,14 @@ def cmd_build(argv):
     if "--theme" in argv:
         i = argv.index("--theme")
         theme_id = argv[i + 1]; del argv[i:i + 2]
+    if "--font" in argv:
+        i = argv.index("--font")
+        font_id = argv[i + 1] or None; del argv[i:i + 2]
+    compose_spec = []
+    if "--compose" in argv:
+        i = argv.index("--compose")
+        cf = argv[i + 1]; del argv[i:i + 2]
+        compose_spec = json.loads(Path(_confine(cf)).read_text(encoding="utf-8")).get("compose", [])
     pairs = list(zip(argv[0::2], argv[1::2]))
     if not pairs and not sets:
         print("用法: build 页码 \"新标题\" ... [--set 页码:slot_id=文本 ...]  （默认输出 deck_out.pptx，生成后自行改名）")
@@ -151,7 +177,8 @@ def cmd_build(argv):
         slides.append(int(pg))
         edits.append({"slide": int(pg), "slot_id": slot, "new_text": txt})
     slides = sorted(set(slides))
-    spec = {"template_slug": "deck-all", "selected_slides": slides, "edits": edits}
+    spec = {"template_slug": "deck-all", "selected_slides": slides, "edits": edits,
+            **({"compose": compose_spec} if compose_spec else {})}
     tmp = _confine("deck_edits.json")      # 规范化+限定目录后落盘，构建后保留供排查
     Path(tmp).write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
     tpl_dir = os.path.realpath(TPL)
@@ -167,7 +194,8 @@ def cmd_build(argv):
         detail_path = os.path.join(tpl_dir, "detail.json")
     rc = build_pptx.build(os.path.join(tpl_dir, "template.pptx"), tmp, build_tmp,
                           detail=detail_path, allow_small_font=allow_small_font,
-                          allow_mixed_palette=allow_mixed, theme=theme_id)
+                          allow_mixed_palette=allow_mixed, theme=theme_id,
+                          font=font_id)
     if rc != 0 or not os.path.isfile(build_tmp):
         print("✗ 构建未产出中间文件，中止")
         sys.exit(2)
@@ -225,6 +253,8 @@ def main(argv):
         cmd_find(argv[1])
     elif argv[0] == "show":
         cmd_show(int(argv[1]))
+    elif argv[0] == "components":
+        cmd_components(int(argv[1]))
     elif argv[0] == "build":
         cmd_build(argv[1:])
     else:
