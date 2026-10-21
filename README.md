@@ -23,11 +23,9 @@ skeletons, Chinese and English output.
 | **快线 · 合辑模板换字** | 仅 python-pptx | 有现成内容，用内置合辑模板选页换字，分钟级出稿 |
 | **备线 · 矢量复刻** | rapidocr + ppt-master（可选） | 手里已有 PPT 图片/截图，要逐页重建为可编辑 |
 
-### 主线：GordenSuperPPTSkill 端到端
+### 主线：端到端（模式 C）
 
-三个子技能收录在本仓库（`GordenSuperPPTSkill/`、`GordenImagePPTGen/`、
-`GordenImage2PPTX/`），编排规则以
-[`GordenSuperPPTSkill/references/pipeline.md`](GordenSuperPPTSkill/references/pipeline.md) 为准：
+编排规则以 [`references/pipeline.md`](references/pipeline.md) 为准：
 
 ```
 内容 → 阶段1 outline+imagegen 逐页出图 → 图片型 PPT
@@ -133,7 +131,7 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 ## 版权
 
 合辑全部页面由作者对公开商务 PPT 预览图做逐页矢量重绘而来，非第三方模板
-素材，可自由使用与二次修改。Gorden 系技能版权归原作者。
+素材，可自由使用与二次修改。
 
 ---
 
@@ -209,4 +207,4 @@ shapes — deflate is already at the compression floor) + reference images 1.9MB
 
 All collection pages are hand vector-redraws by the author from public
 business-PPT previews (not third-party template assets) — free to use and
-modify. Gorden skills copyright their respective authors.
+modify.

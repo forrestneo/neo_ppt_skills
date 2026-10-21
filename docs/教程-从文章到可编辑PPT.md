@@ -13,9 +13,9 @@
    ↓
 拆分出页（页清单：每页标题+要点+视觉意图）
    ↓
-逐页生成图片（GordenImagePPTGen：imagegen 出图 → 图片型 PPT）
+逐页生成图片（图片生成引擎：imagegen 出图 → 图片型 PPT）
    ↓
-四层还原（GordenImage2PPTX：背景图/骨架图/元素图标/真文本 → 可编辑 PPTX）
+四层还原（四层还原引擎：背景图/骨架图/元素图标/真文本 → 可编辑 PPTX）
    ↓
 验收交付（双成品 + 渲染对照）
 ```
@@ -27,7 +27,7 @@
 | 写文章 | 文章/大纲底稿 | 你（或 AI 辅助） |
 | 拆分出页 | 页清单（每页标题/要点/版式） | 你 + AI |
 | 生成图片 | 逐页 PNG + 图片型 PPT | imagegen（必须真实调用） |
-| 转成 PPT | 可编辑 PPTX | GordenImage2PPTX 四层还原 |
+| 转成 PPT | 可编辑 PPTX | 四层还原引擎 四层还原 |
 
 ---
 
@@ -96,7 +96,7 @@
 
 ---
 
-## 第 3 步：逐页生成图片（GordenImagePPTGen）
+## 第 3 步：逐页生成图片（图片生成引擎）
 
 这一步把每页清单变成一张张精美的**整页图片**。
 
@@ -138,7 +138,7 @@
 
 ---
 
-## 第 4 步：四层还原成可编辑 PPTX（GordenImage2PPTX）
+## 第 4 步：四层还原成可编辑 PPTX（四层还原引擎）
 
 这一步把每页 PNG **拆成四层**再合成可编辑 PPTX。
 
@@ -200,5 +200,5 @@ python scripts/bank_all_cli.py show 页码
 python scripts/bank_all_cli.py build 页码 "新标题"
 ```
 
-edits.json schema 与 GordenPPTSkill 模式 A 一致，槽位与容量从对应
+edits.json schema 与 模板换字引擎 模式 A 一致，槽位与容量从对应
 `detail.json` 查询。

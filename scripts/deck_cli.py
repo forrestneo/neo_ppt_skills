@@ -169,7 +169,7 @@ def cmd_build(argv):
         sys.exit(2)
     # 输出页序改为用户给定的顺序（build_pptx 固定按模板页序，这里做 zip 级重排：
     # 只重写 presentation.xml 的 sldIdLst 顺序，其余部件字节级原样拷贝。
-    # 不要用 python-pptx 重排+重存——Gorden prune 后包内有同名部件对象，
+    # 不要用 python-pptx 重排+重存——prune 后包内有同名部件对象，
     # 重存会产生重复 zip 条目导致 LibreOffice 拒载。
     if len(pairs) + len(sets) > 1:
         desired = [int(pg) for pg, _ in pairs] + [int(s.split(":", 1)[0]) for s in sets]

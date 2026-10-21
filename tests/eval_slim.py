@@ -39,14 +39,23 @@ def run(args, cwd=None, input_text=None):
 def t_structure():
     need = ["SKILL.md", "README.md", "scripts/deck_cli.py", "scripts/build_pptx.py",
             "scripts/compute_capacity.py", "scripts/render_slides.py",
+            "scripts/palette_check.py", "scripts/palettes.json",
             "templates/MANIFEST.json", "templates/deck-all/template.pptx",
             "templates/deck-all/detail.json.gz",
-            "GordenSuperPPTSkill/SKILL.md", "GordenImagePPTGen/SKILL.md",
-            "GordenImage2PPTX/SKILL.md", "extras/pipeline.md"]
+            "references/pipeline.md", "references/image-prompt-guide.md",
+            "references/image-to-pptx.md", "references/runtime-notes.md",
+            "scripts/restore/compose_pptx.py", "scripts/restore/chroma_key.py",
+            "scripts/imagegen/compose_pptx.py",
+            "assets/reference-slides/leader_love/ref1.jpg", "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
 
-    gone = ["templates/bank-lite", "use_bank_lite.py"]
+    gone = ["templates/bank-lite", "use_bank_lite.py",
+            "GordenSuperPPTSkill", "GordenImagePPTGen", "GordenImage2PPTX"]
+    bad = [str(f.relative_to(ROOT)) for f in ROOT.rglob("*")
+           if f.is_file() and f.suffix in (".md", ".py", ".json")
+           and "__pycache__" not in f.parts and ".git" not in f.parts
+           and "Gorden" in f.read_text(encoding="utf-8", errors="ignore")]
     for rel in gone:
         check("冗余已删 " + rel, not (ROOT / rel).exists())
 

@@ -53,7 +53,7 @@ mkdir -p "$RUN_ROOT/editable/01/icons" "$RUN_ROOT/editable/01/prompts" "$RUN_ROO
 ## B1. 探色：决定本页抠图底色
 
 ```bash
-python3 scripts/probe_palette.py "$RUN_ROOT/editable/01/slide-01.png"
+python3 scripts/restore/probe_palette.py "$RUN_ROOT/editable/01/slide-01.png"
 ```
 
 - 输出 `recommended_key: #00ff00` → 本页用纯绿抠图（默认，效果最好）。
@@ -169,28 +169,28 @@ python3 scripts/probe_palette.py "$RUN_ROOT/editable/01/slide-01.png"
 
 ## B5. 去底 + 图标切片（框架默认不切分）
 
-**首选本技能自带的 `scripts/chroma_key.py`（保色保线）**，把**框架图**和**图标图**的底色变透明。框架图默认保留为整张透明 `frame.png`；图标图按透明空隙或网格切片。只有用户明确要求"框架切分/框架部件可移动/拆成一块块"时，才执行可选框架切分分支：
+**首选本技能自带的 `scripts/restore/chroma_key.py`（保色保线）**，把**框架图**和**图标图**的底色变透明。框架图默认保留为整张透明 `frame.png`；图标图按透明空隙或网格切片。只有用户明确要求"框架切分/框架部件可移动/拆成一块块"时，才执行可选框架切分分支：
 
 ```bash
 # 框架图去底 → 透明框架图（保留填充/辉光/细线，绝不褪色）：
-python3 scripts/chroma_key.py --input "$RUN_ROOT/editable/01/frame_raw.png" --out "$RUN_ROOT/editable/01/frame.png" --preset frame-safe --scale 2 --force
+python3 scripts/restore/chroma_key.py --input "$RUN_ROOT/editable/01/frame_raw.png" --out "$RUN_ROOT/editable/01/frame.png" --preset frame-safe --scale 2 --force
 
 # 图标图去底（默认自动识别绿底）：
-python3 scripts/chroma_key.py --input "$RUN_ROOT/editable/01/icons_raw_1.png" --out "$RUN_ROOT/editable/01/icons_t_1.png" --preset icon-safe --scale 2 --force
+python3 scripts/restore/chroma_key.py --input "$RUN_ROOT/editable/01/icons_raw_1.png" --out "$RUN_ROOT/editable/01/icons_t_1.png" --preset icon-safe --scale 2 --force
 # 非绿底（B1 推荐了别的色）则显式指定：
-# python3 scripts/chroma_key.py --input ... --out ... --auto-key none --key-color "#ff00ff" --force
+# python3 scripts/restore/chroma_key.py --input ... --out ... --auto-key none --key-color "#ff00ff" --force
 
 # 图标切成单个并裁掉透明边（只允许切 imagegen 生成的图标表；网格按 B4 实际用的 N×N）：
-python3 scripts/slice_grid.py "$RUN_ROOT/editable/01/icons_t_1.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix ic1
-python3 scripts/slice_grid.py "$RUN_ROOT/editable/01/icons_t_2.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix deco
+python3 scripts/restore/slice_grid.py "$RUN_ROOT/editable/01/icons_t_1.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix ic1
+python3 scripts/restore/slice_grid.py "$RUN_ROOT/editable/01/icons_t_2.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix deco
 
 # 若 AI 没排成完美网格 / 大装饰没居中（常见）：用 --auto 按透明空隙自动分割（更稳健）
-python3 scripts/slice_grid.py "$RUN_ROOT/editable/01/icons_t_1.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix ic1
+python3 scripts/restore/slice_grid.py "$RUN_ROOT/editable/01/icons_t_1.png" "$RUN_ROOT/editable/01/icons" --auto --pad 24 --contact-sheet --prefix ic1
 
 # 可选：仅当用户明确要求框架切分/框架部件可移动时执行
 mkdir -p "$RUN_ROOT/editable/01/frame_parts"
-python3 scripts/slice_grid.py "$RUN_ROOT/editable/01/frame.png" "$RUN_ROOT/editable/01/frame_parts" --components --pad 0 --contact-sheet --prefix fp
-python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons_manifest.json" --ref-width <源图宽px> --ref-height <源图高px> --out "$RUN_ROOT/editable/01/frame_parts/frame_parts_layout_icons.json"
+python3 scripts/restore/slice_grid.py "$RUN_ROOT/editable/01/frame.png" "$RUN_ROOT/editable/01/frame_parts" --components --pad 0 --contact-sheet --prefix fp
+python3 scripts/restore/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons_manifest.json" --ref-width <源图宽px> --ref-height <源图高px> --out "$RUN_ROOT/editable/01/frame_parts/frame_parts_layout_icons.json"
 ```
 
 > ⚠️ **抠图保真铁律（务必遵守，否则会"变色严重 + 丢线"）**：
@@ -208,7 +208,7 @@ python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons
 - 可选切分时，框架部件不要使用 `--square`：它会给切片增加额外透明边，破坏 bbox 回放。框架切片应保持 cutout 尺寸等于 bbox 尺寸。
 - 必须查看 `icons_contact_sheet.png`：任一图标被切掉一部分、缺角、缺边、只剩半个、阴影/外轮廓被截断，或 manifest 里任一 `edge_touch` 为 true，均视为 B5 失败。处理顺序：先用更大留白/更少格子重出 `icons_raw_*.png`；再用更大的 `--pad` 重切。禁止从原图或全幅原位图里手工裁局部来补救。
 - 切出的图标命名只表网格位，真实摆放位置在 B6 决定。
-- 兜底：无 `scripts/chroma_key.py` 时才用 Codex 的 `remove_chroma_key.py`，且**不要**叠加 `--soft-matte --despill`（会褪色），优先纯 `--auto-key border`。
+- 兜底：无 `scripts/restore/chroma_key.py` 时才用 Codex 的 `remove_chroma_key.py`，且**不要**叠加 `--soft-matte --despill`（会褪色），优先纯 `--auto-key border`。
 
 ### B5a. 生成证据检查（必须在合成前执行）
 
@@ -261,7 +261,7 @@ python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons
 - 若 layout 使用 `units:"fraction"`：`x=l/frame_w`、`y=t/frame_h`、`w=(r-l)/frame_w`、`h=(b-t)/frame_h`。
 - 同时保留 `source_bbox:[l/frame_w*ref_width, t/frame_h*ref_height, (r-l)/frame_w*ref_width, (b-t)/frame_h*ref_height]` 作为源图像素 QA 记录。
 - 写入 `icons[]`：`{"file":"frame_parts/fp_001.png","role":"frame_part","x":...,"y":...,"w":...,"h":...,"source_bbox":[x,y,w,h]}`。
-- 推荐直接运行脚本生成条目：`python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons_manifest.json" --ref-width <源图宽px> --ref-height <源图高px>`，再把输出的 `frame_parts_layout_icons.json` 内容并入 `layout.json` 的 `icons[]` 最前面。
+- 推荐直接运行脚本生成条目：`python3 scripts/restore/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons_manifest.json" --ref-width <源图宽px> --ref-height <源图高px>`，再把输出的 `frame_parts_layout_icons.json` 内容并入 `layout.json` 的 `icons[]` 最前面。
 
 > 📐 **必须记录每个图标在原图中的实际包围盒（核心要求，常被漏做）**：`slice_grid.py` 的 manifest **只记录素材表里每个图标的尺寸/宽高比，不含它在原幻灯片里的位置**。所以 B6 必须**看原图逐个量出每个图标在源图实际像素坐标系里的 `x, y, w, h` bbox，然后换算成比例写进 layout.json 的 `icons[]`**——放回任意 PPT 尺寸时大小/位置才能按比例一致。建议维护一张对照表：`图标文件 → 原图 x/y/w/h(px) → x/y/w/h(fraction)`（可顺手记进 manifest 旁的一个 `placements.json`）。**别只靠目测随手摆**，那会出现"图标偏大/偏小/错位"。
 
@@ -270,10 +270,10 @@ python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons
   - `ref_width/ref_height` 必须等于当前页源图文件的实际像素尺寸，例如源图是 4096×2286，就写 `4096/2286`。
   - `source_bbox` 必须使用同一张源图的实际像素坐标，不能是 `view_image` 界面缩略图、预览 PNG、浏览器截图或人工缩放图上的坐标。`view_image` 常会把 4096×2286 显示成 2048×1143；此时量到的 `x/y/w/h/size_px` 必须全部乘以 2，不能只修 x 或只修 y。
   - 若为了方便在同宽高比缩略图上量测（例如 2048×1143），必须先按 `scale_x=源图宽/缩略图宽`、`scale_y=源图高/缩略图高` 分别换回源图坐标，或运行：
-    `python3 scripts/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --fix-ref-to-source --fix-fractions --in-place`
+    `python3 scripts/restore/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --fix-ref-to-source --fix-fractions --in-place`
     然后重新复查关键文本/图标位置。
   - 合成前必须运行：
-    `python3 scripts/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --strict`
+    `python3 scripts/restore/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --strict`
     任何 `ref_width/ref_height` 与源图尺寸不一致，或 `source_bbox` 与 `x/y/w/h` 不一致，都不得进入 B8。`layout_guard.py` 不用页面覆盖高度判错；有些真实页面本来只在上半页或局部区域有文字/图标。
   - `layout_guard.py` 只校验坐标契约，不能判断 bbox 是否圈住了正确对象。它通过以后，还必须打开 `qa-source-boxes/slide_01_source_boxes.png` 做视觉复核：每个框必须覆盖源图真实文本/图标，而不是覆盖到同一面板里的其它行、其它按钮或空白位置。
 - **图标尺寸要对照原图逐个核准**（上一轮反馈"图标大小不合适"）：
@@ -364,11 +364,11 @@ python3 scripts/frame_parts_to_icons.py "$RUN_ROOT/editable/01/frame_parts/icons
 ## B8. 合成 + 预览
 
 ```bash
-python3 scripts/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --strict
-python3 scripts/placement_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --slide-index 1 --out-dir "$RUN_ROOT/editable/01/qa-source-boxes"
+python3 scripts/restore/layout_guard.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --strict
+python3 scripts/restore/placement_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --slide-index 1 --out-dir "$RUN_ROOT/editable/01/qa-source-boxes"
 python3 scripts/compose_pptx.py "$RUN_ROOT/editable/01/layout.json" "$RUN_ROOT/out/<task-slug>.pptx" --preview-dir "$RUN_ROOT/out/preview"
-python3 scripts/placement_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --slide-index 1 --preview "$RUN_ROOT/out/preview/slide_01.png" --out-dir "$RUN_ROOT/editable/01/qa-placement"
-python3 scripts/visual_compare_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/out/preview/slide_01.png" --out-dir "$RUN_ROOT/editable/01/qa-visual"
+python3 scripts/restore/placement_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/editable/01/layout.json" --slide-index 1 --preview "$RUN_ROOT/out/preview/slide_01.png" --out-dir "$RUN_ROOT/editable/01/qa-placement"
+python3 scripts/restore/visual_compare_qa.py "$RUN_ROOT/editable/01/slide-01.png" "$RUN_ROOT/out/preview/slide_01.png" --out-dir "$RUN_ROOT/editable/01/qa-visual"
 ```
 
 - 生成可编辑 .pptx（文字是真文本框；背景/框架/图标/装饰是 imagegen 生成的可移动图片层）。

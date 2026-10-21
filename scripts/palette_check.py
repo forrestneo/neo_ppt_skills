@@ -48,7 +48,7 @@ def hue_dist(a: float, b: float) -> float:
 
 def scan(path: str):
     """逐页统计饱和用色：{页码: Counter{hex: 次数}}。
-    只统计 presentation.xml 实际引用的页（Gorden prune 会遗留孤儿 slide 部件）。"""
+    只统计 presentation.xml 实际引用的页（prune 会遗留孤儿 slide 部件）。"""
     z = zipfile.ZipFile(path)
     try:
         rels = z.read("ppt/_rels/presentation.xml.rels").decode("utf-8")

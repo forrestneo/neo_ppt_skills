@@ -60,6 +60,6 @@ python /tmp/npk/tests/eval_slim.py    # 57 项全绿即发布完整
 | `SKILL.md` / `README.md` | 技能入口与项目文档（含三条产线、四条编辑铁律、字号换算表） |
 | `templates/deck-all/` | 577 页合辑模板 + detail.json.gz（槽位容量）+ palette.json（页主色）+ palettes 标准配色 |
 | `scripts/` | build_pptx 出稿引擎（12pt/容量/配色三重门禁）、bank_all_cli、palette_check、render_slides、compute_capacity |
-| `GordenSuperPPTSkill/` 等 | 主线三个子技能（imagegen 图片型 PPT → 四层还原） |
+| `references/` + `scripts/restore|imagegen` | 三条产线的方法论与引擎（图片生成 → 四层还原） |
 | `tests/eval_slim.py` | 57 项回归基线（结构/CLI/边界/铁律/渲染/依赖） |
 | `docs/` `extras/` | 新人教程；OCR 矢量复刻备线 |

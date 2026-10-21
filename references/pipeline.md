@@ -2,7 +2,7 @@
 
 本技能 = 依次完整执行两个子技能。本文件是落地细节；每阶段的**完整**规范以子技能的 SKILL.md / references 为准。
 
-## 阶段 1 · 生成图片型 PPT（GordenImagePPTGen）
+## 阶段 1 · 生成图片型 PPT（图片生成引擎）
 
 1. **A1 确认**：风格 / 受众 / 页数 / 语言（用户说"直接生成"则跳过，并声明所用设定）。比例跟随用户（默认 16:9；用户要 3:2 就全套 3:2）。
 2. **A2 大纲 `outline.json`**：解构内容；为**每页指派不重复的复杂框架**；**统一一套配色**；写厚每页 `detailed_content`（真实数据，禁编造）。
@@ -18,9 +18,9 @@
 - 若 imagegen 不可用，必须停止并说明阻塞原因，不能用代码绘图兜底。
 - 没有 `imagegen-manifest.json`，或任一页缺 `generated_source` 与 `copied_to`，阶段 1 判失败，不能进入阶段 2。
 
-> 详见 `../GordenImagePPTGen/references/image-prompt-guide.md`（§0 内容优先、§1.5 复杂度、§1.7 唯一框架+清晰优先、§4 图表目录、§7 outline 结构）。
+> 详见 `../图片生成引擎/references/image-prompt-guide.md`（§0 内容优先、§1.5 复杂度、§1.7 唯一框架+清晰优先、§4 图表目录、§7 outline 结构）。
 
-## 阶段 2 · 还原为可编辑 PPTX（GordenImage2PPTX）
+## 阶段 2 · 还原为可编辑 PPTX（四层还原引擎）
 
 对阶段 1 的**每一张** `slides/NN-*.png`，按强制四层执行：
 
@@ -34,7 +34,7 @@
 
 每页必须写 `imagegen-assets-manifest.json`，记录 B2/B3/B4 的模型生成源图 `generated_source` 与复制路径 `copied_to`；缺失则阶段 2 判失败。
 
-> 详见 `../GordenImage2PPTX/references/image-to-pptx.md`（B1–B9 全流程 + schema + 抠图保真铁律）。
+> 详见 `../四层还原引擎/references/image-to-pptx.md`（B1–B9 全流程 + schema + 抠图保真铁律）。
 
 ## 两条防退化铁律（必须守）
 

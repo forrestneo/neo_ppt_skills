@@ -12,8 +12,8 @@ Also handles Part 1 "image deck" output: a slide with only `background` and no
 icons/texts becomes a full-bleed image slide.
 
 Usage:
-    python3 scripts/compose_pptx.py deck.json out.pptx
-    python3 scripts/compose_pptx.py deck.json out.pptx --preview-dir out/preview
+    python3 scripts/imagegen/compose_pptx.py deck.json out.pptx
+    python3 scripts/imagegen/compose_pptx.py deck.json out.pptx --preview-dir out/preview
 
 Layout schema: see references/image-to-pptx.md. Quick form:
 {
