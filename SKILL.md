@@ -108,6 +108,16 @@ generated_source/prompt_file/backend/copied_to），任一层非 imagegen 来源
 [references/image-to-pptx.md](references/image-to-pptx.md)、
 [references/runtime-notes.md](references/runtime-notes.md)
 
+**关键换算与 QA 顺序**：
+- 坐标：layout.json 用 `units:"fraction"`；先量源图像素 bbox，`x=x_px/ref_width`
+  写入，并保留 `source_bbox` 供 QA；缩略图上量的坐标必须按
+  `源图宽/缩略图宽`、`源图高/缩略图高` 分别换回，禁止 x/y 混用坐标系
+- 字号：`size_ratio = 源图文字高度px / ref_height`（compose 换算
+  `pt = size_ratio × 页高in×72`）；或直接写绝对 `size` pt
+- 回校顺序固定：**先定 bold/字号/line_spacing → 再修 bbox**（否则换行变化
+  让已校位置再次漂移）；贴框文本最后按最终 frame.png 的视觉锚点回校
+- 图标回校按中心点锚定：`new_x = cx − new_w/2`
+
 **引擎脚本**（`scripts/restore/`）：probe_palette / chroma_key / slice_grid /
 frame_parts_to_icons / layout_guard / placement_qa / visual_compare_qa / compose_pptx
 
@@ -145,11 +155,9 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 
 ```
 SKILL.md            # 本文件（唯一技能卡）
-references/         # 方法论：pipeline（端到端）/ image-prompt-guide / image-to-pptx / runtime-notes
-scripts/            # 快线引擎 + restore/（四层还原引擎）+ imagegen/（图片型合成）+ palette_check
+scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + restore/（四层还原）+ imagegen/
 templates/deck-all/ # 577 页合辑模板 + detail（槽位容量）+ palette.json（页主色）
-assets/reference-slides/  # 排版参考图库
-tests/eval_slim.py  # 57 项回归基线
+tests/eval_slim.py  # 回归基线
 extras/ docs/       # 备线管线；教程
 ```
 
