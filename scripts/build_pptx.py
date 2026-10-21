@@ -74,6 +74,126 @@ def cn_size_name(pt: float) -> str:
     return f"{pt:g}pt"
 
 
+# ------------------------------------------------------------------
+# 配色主题化：把一页的饱和用色按占比排名映射到目标主题色序列（中性色不动），
+# 使任意来源的页统一到同一套配色体系。
+# ------------------------------------------------------------------
+import re
+import colorsys
+from collections import Counter as _Counter
+
+
+def _is_sat(hex6: str) -> bool:
+    r = int(hex6[0:2], 16) / 255
+    g = int(hex6[2:4], 16) / 255
+    b = int(hex6[4:6], 16) / 255
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    return s >= 0.18 and 0.12 < v < 0.98
+
+
+def slide_accent_ranks(slide) -> list:
+    """页内饱和色按出现次数降序（去黑白灰）。"""
+    cnt = _Counter()
+    for el in slide._element.iter():
+        if el.tag.endswith("}srgbClr"):
+            v = (el.get("val") or "").upper()
+            if re.fullmatch(r"[0-9A-F]{6}", v) and _is_sat(v):
+                cnt[v] += 1
+    return [c for c, _ in cnt.most_common()]
+
+
+def unify_slide_colors(slide, theme_colors: list) -> tuple:
+    """按排名把页内饱和色映射到 theme_colors（循环取用）。返回 (换色数, 映射)。"""
+    ranked = slide_accent_ranks(slide)
+    mapping = {c: theme_colors[i % len(theme_colors)] for i, c in enumerate(ranked)}
+    n = 0
+    for el in slide._element.iter():
+        if el.tag.endswith("}srgbClr"):
+            v = (el.get("val") or "").upper()
+            if v in mapping and mapping[v] != v:
+                el.set("val", mapping[v])
+                n += 1
+    return n, mapping
+
+
+def load_themes() -> dict:
+    p = Path(__file__).resolve().parent / "palettes.json"
+    try:
+        return {t["id"]: t for t in json.loads(p.read_text(encoding="utf-8"))["themes"]}
+    except Exception:
+        return {}
+
+
+def theme_color_list(theme: dict) -> list:
+    return [theme["primary"], theme["secondary"]] + list(theme.get("accents", []))
+
+
+# ------------------------------------------------------------------
+# 组件簇：把一页的顶层形状按 bbox 重叠连通聚成"组件"（一张卡片=一个组件）
+# ------------------------------------------------------------------
+def _bbox(shape):
+    if shape.left is None or shape.top is None:
+        return None
+    return (shape.left, shape.top,
+            shape.left + (shape.width or 0), shape.top + (shape.height or 0))
+
+
+def _overlaps(a, b, tol=9525):  # 容差 0.75pt
+    return not (a[2] + tol <= b[0] or b[2] + tol <= a[0]
+                or a[3] + tol <= b[1] or b[3] + tol <= a[1])
+
+
+def shape_clusters(slide) -> list:
+    """返回组件簇列表：[{idx, bbox:(l,t,r,b), shapes:[shape]}]，按面积降序。"""
+    shapes = [sh for sh in slide.shapes if sh.left is not None]
+    rects = {id(sh): _bbox(sh) for sh in shapes}
+    parent = {i: i for i in range(len(shapes))}
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i, j):
+        parent[find(i)] = find(j)
+
+    for i in range(len(shapes)):
+        for j in range(i + 1, len(shapes)):
+            ri, rj = rects[id(shapes[i])], rects[id(shapes[j])]
+            if _overlaps(ri, rj):
+                union(i, j)
+    groups = {}
+    for i, sh in enumerate(shapes):
+        groups.setdefault(find(i), []).append(sh)
+    out = []
+    for members in groups.values():
+        bs = [rects[id(m)] for m in members]
+        bbox = (min(b[0] for b in bs), min(b[1] for b in bs),
+                max(b[2] for b in bs), max(b[3] for b in bs))
+        out.append({"bbox": bbox, "shapes": members,
+                    "area": (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])})
+    out.sort(key=lambda c: -c["area"])
+    for i, c in enumerate(out):
+        c["idx"] = i
+    return out
+
+
+def copy_cluster(dst_slide, cluster, dx: int, dy: int) -> int:
+    """把组件簇的形状深拷贝到目标页并整体平移 (dx,dy) EMU。返回拷贝数。"""
+    import copy as _copy
+    n = 0
+    for sh in cluster["shapes"]:
+        el = _copy.deepcopy(sh._element)
+        # 平移：所有 a:off（顶层与组内层级统一按同一 delta 平移即可）
+        for off in el.iter("{http://schemas.openxmlformats.org/drawingml/2006/main}off"):
+            off.set("x", str(int(off.get("x", 0)) + dx))
+            off.set("y", str(int(off.get("y", 0)) + dy))
+        dst_slide.shapes._spTree.append(el)
+        n += 1
+    return n
+
+
 # 整套配色体系（铁律）：所有选中页的主导色相必须同属一个体系（环形距离 ≤30°）
 PALETTE_HUE_TOL = 30.0
 
@@ -270,6 +390,7 @@ def run(args) -> int:
     edits_spec = json.loads(args.edits.read_text(encoding="utf-8"))
     selected = list(edits_spec.get("selected_slides") or [])
     raw_edits = list(edits_spec.get("edits") or [])
+    compose_spec = list(edits_spec.get("compose") or [])
     slot_index = load_slot_index(args.detail)
 
     prs = Presentation(args.template)
@@ -365,9 +486,89 @@ def run(args) -> int:
               f"可酌情用更精炼的措辞重写；但**不要截断加省略号**，也不要改字号——"
               f"宁可轻微超出。", file=sys.stderr)
 
+    # ---- 组件组装：从其它页复制组件簇到画布页（偏移落位 + 文案覆盖 + 12pt） ----
+    thr = float(getattr(args, 'min_font', None) or MIN_FONT_PT)
+    if compose_spec:
+        from pptx.util import Emu as _Emu
+        EMU_IN = 914400
+        total_copied = 0
+        for cs in compose_spec:
+            base_idx = int(cs["base"])
+            base_slide = prs.slides[base_idx - 1]
+            for item in cs.get("add", []):
+                src_idx = int(item["slide"])
+                src_slide = prs.slides[src_idx - 1]
+                clusters = shape_clusters(src_slide)
+                ci = int(item.get("component", 0))
+                if ci < 0 or ci >= len(clusters):
+                    print(f"WARN: compose slide {src_idx} 组件 {ci} 不存在（共 {len(clusters)} 簇），跳过",
+                          file=sys.stderr)
+                    continue
+                cluster = clusters[ci]
+                bl, bt, br, bb = cluster["bbox"]
+                at = item.get("at")  # 英寸 [x, y]（组件左上角目标位置）
+                if at:
+                    dx, dy = int(at[0] * EMU_IN) - bl, int(at[1] * EMU_IN) - bt
+                else:
+                    dx = dy = 0
+                copied = copy_cluster(base_slide, cluster, dx, dy)
+                total_copied += copied
+                # 文案覆盖：对复制后的形状按"原文子串"替换（保格式）
+                for old, new in (item.get("texts") or {}).items():
+                    for sh in base_slide.shapes:
+                        if not sh.has_text_frame:
+                            continue
+                        for para in sh.text_frame.paragraphs:
+                            for r in para.runs:
+                                if old in (r.text or ""):
+                                    r.text = r.text.replace(old, new)
+                print(f"compose: 页{src_idx} 组件{ci}（{copied} 形状）→ 页{base_idx}"
+                      + (f" @ {at}" if at else ""))
+            # 复制进来的文字统一提到 12pt（铁律：组件文案也算正文）
+            for sh in base_slide.shapes:
+                if not sh.has_text_frame:
+                    continue
+                for para in sh.text_frame.paragraphs:
+                    for r in para.runs:
+                        if r.text.strip() and (r.font.size is None or r.font.size.pt < thr - 1e-6):
+                            r.font.size = Pt(thr)
+        if total_copied:
+            print(f"组件组装完成：共复制 {total_copied} 个形状", file=sys.stderr)
+
+    # ---- 配色主题化：选中页饱和用色统一映射到目标主题（默认自动取多数主色最近的
+    #      标准主题；--theme 指定主题 id）。中性色不动，末步配色检查因此必然通过。 ----
+    if not getattr(args, "no_min_font", False) or True:
+        themes = load_themes()
+        if themes:
+            pal = load_page_palette(Path(args.template))
+            thr = float(getattr(args, "min_font", None) or MIN_FONT_PT)
+            theme_id = getattr(args, "theme", None)
+            theme = themes.get(theme_id) if theme_id else None
+            if theme is None:
+                # 自动：多数页主色 hue → 最近标准主题
+                doms = [pal.get(str(sn), {}).get("dominant") for sn in selected
+                        if pal.get(str(sn), {}).get("dominant")]
+                hues = sorted(_hue_deg(c) for c in doms)
+                base_h = hues[len(hues) // 2] if hues else None
+                best, bd = None, 1e9
+                for t in themes.values():
+                    d = hue_dist(float(t["hue"]), base_h) if base_h is not None else 1e9
+                    if d < bd:
+                        best, bd = t, d
+                theme = best
+            if theme:
+                colors = theme_color_list(theme)
+                recolored = 0
+                for sn in selected:
+                    n, _mp = unify_slide_colors(prs.slides[sn - 1], colors)
+                    recolored += n
+                print(f"主题化：已按「{theme.get('name', theme_id or theme['id'])}」统一"
+                      f" {len(selected)} 页配色（替换 {recolored} 处颜色）", file=sys.stderr)
+
     if ellipsis_issues:
-        print(f"\n⚠️ {len(ellipsis_issues)} 处文字结尾是省略号，很可能是为凑长度而截断"
-              f"（这是最差的结果）。请改成完整、精炼的表达：", file=sys.stderr)
+        print("\n⚠️ {} 处文字结尾是省略号，很可能是为凑长度而截断"
+              "（这是最差的结果）。请改成完整、精炼的表达：".format(
+                  len(ellipsis_issues)), file=sys.stderr)
         for line in ellipsis_issues:
             print(f"  - {line}", file=sys.stderr)
 

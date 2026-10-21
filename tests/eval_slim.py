@@ -233,14 +233,14 @@ def t_cli():
         r21 = run([CLI, "build", "-o", str(Path(td) / "mix2.pptx"), "--allow-small-font",
                    "--allow-mixed-palette", "1", "混色测试A", "20", "混色测试B"], cwd=td)
         both21 = r21.stdout + r21.stderr
-        check("--allow-mixed-palette 降级警告可出稿", r21.returncode == 3
-              and (Path(td) / "mix2.pptx").is_file() and "降级为警告" in both21
-              and "最终配色检查未通过" in both21)
-        # 最终配色检查器本体：同系页出稿 → PASS；跨系（豁免产出）→ FAIL
+        check("--allow-mixed-palette 降级警告可出稿（主题化后过末检）",
+              r21.returncode == 0 and (Path(td) / "mix2.pptx").is_file()
+              and "降级为警告" in both21 and "最终配色检查通过" in both21)
+        # 最终配色检查器本体：主题化统一后的混选稿 → PASS
         CHK = ROOT / "scripts" / "palette_check.py"
         r22 = run([CHK, str(Path(td) / "mix2.pptx")], cwd=td)
-        check("最终配色检查：跨系稿 FAIL(rc=3)", r22.returncode == 3
-              and "未通过" in (r22.stdout + r22.stderr))
+        check("最终配色检查：主题化稿 PASS", r22.returncode == 0
+              and "通过" in (r22.stdout + r22.stderr))
         out_same = Path(td) / "same.pptx"
         r23 = run([CLI, "build", "-o", str(out_same), "--allow-small-font",
                    "1", "同系页A", "2", "同系页B", "3", "同系页C"], cwd=td)
