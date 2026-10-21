@@ -96,10 +96,18 @@ def t_structure():
     except Exception as e:
         check("MANIFEST 注册 bank-all", False, str(e))
 
-    # 交付态 = 工作区文件；.git 内部对象与 __pycache__ 瞬态缓存不计
-    size = sum(f.stat().st_size for f in ROOT.rglob("*")
-               if f.is_file()
-               and "__pycache__" not in f.parts and ".git" not in f.parts)
+    # 交付态 = git 跟踪的文件（排除用户测试产物）；非 git 环境回退为全量工作区
+    import subprocess as _sp
+    try:
+        tracked = _sp.run(["git", "ls-files"], cwd=str(ROOT),
+                          capture_output=True, text=True, encoding="utf-8",
+                          timeout=30).stdout.splitlines()
+        size = sum((ROOT / t).stat().st_size for t in tracked
+                   if t and (ROOT / t).is_file() and "__pycache__" not in t)
+    except Exception:
+        size = sum(f.stat().st_size for f in ROOT.rglob("*")
+                   if f.is_file()
+                   and "__pycache__" not in f.parts and ".git" not in f.parts)
     check("总体积 <10MB", size < 10 * 1048576, "%.2f MB" % (size / 1048576))
 
 
