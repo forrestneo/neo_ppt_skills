@@ -50,6 +50,10 @@ def t_structure():
             "references/stylekit/image-type-templates.md",
             "references/stylekit/narrative-and-review.md",
             "references/stylekit/layout-engine.md",
+            "references/stylekit/layout-library.md",
+            "references/stylekit/overflow-and-density.md",
+            "references/stylekit/audit-protocol.md",
+            "references/stylekit/edit-fidelity.md",
             "scripts/layout_audit.py",
             "extras/pipeline.md"]
     for rel in need:
@@ -63,8 +67,15 @@ def t_structure():
               and cnt("imagegen-styles.md", r"^### ") >= 34
               and cnt("image-type-templates.md", r"^## [a-z0-9-]+（") == 11
               and cnt("narrative-and-review.md", r"^## ") >= 5
-              and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8"))
-    check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收，含出处）", ok_cnt)
+              and cnt("layout-library.md", r"^## ") >= 7
+              and cnt("overflow-and-density.md", r"^## ") >= 7
+              and cnt("audit-protocol.md", r"^## ") >= 7
+              and cnt("edit-fidelity.md", r"^## ") >= 7
+              and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8")
+              and "pptwise" in (sk / "layout-library.md").read_text(encoding="utf-8")
+              and "dsh-ppt-canvas" in (sk / "edit-fidelity.md").read_text(encoding="utf-8"))
+    check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收 / "
+          "4 篇排版新蒸馏各 ≥7 节含出处）", ok_cnt)
 
     # layout_audit 端到端：好稿放行（rc=0）、越界+重叠坏稿拦截（rc=1）
     from pptx import Presentation as _Prs
@@ -84,12 +95,18 @@ def t_structure():
             else:
                 tb = s.shapes.add_textbox(_In(1), _In(1), _In(4), _In(2))
                 tb.text_frame.text = "画布内正常文本"
+                # 第二页：孤字盒（3 字/行 × 7 字 → 末行 1 字，warning 级，rc 仍 0）
+                s2 = prs.slides.add_slide(prs.slide_layouts[6])
+                ob = s2.shapes.add_textbox(_In(1), _In(1), _In(0.95), _In(0.5))
+                ob.text_frame.text = "风险管控要落地"
             prs.save(path)
         _mk(os.path.join(td, "good.pptx"), False)
         _mk(os.path.join(td, "bad.pptx"), True)
         r_good = run([BUILD.parent / "layout_audit.py", os.path.join(td, "good.pptx")])
         r_bad = run([BUILD.parent / "layout_audit.py", os.path.join(td, "bad.pptx")])
         check("layout_audit 好稿放行 rc=0", r_good.returncode == 0)
+        check("layout_audit 孤字检测命中 orphan-line", "orphan-line" in r_good.stdout
+              and r_good.returncode == 0)
         check("layout_audit 坏稿拦截（越界 error + 重叠 warning，rc=1）",
               r_bad.returncode == 1 and "out-of-bounds" in r_bad.stdout
               and "overlap" in r_bad.stdout)

@@ -136,8 +136,10 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 
 ## 风格库与叙事选型（stylekit）
 
-蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）的知识库，
-按需查阅、只读选中的一篇：
+蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 9 个
+DSH/独立 PPT 引擎（pptwise、dsh-ppt、dsh-ppt-maker、dsh-ppt-master、PTT-Studio、
+PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design）的知识库，
+各篇头部注明来源与许可；按需查阅、只读选中的一篇：
 
 | 文件 | 内容 | 何时查 |
 |---|---|---|
@@ -146,16 +148,22 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 | `references/stylekit/image-type-templates.md` | 11 种图式构图（漏斗/矩阵/金字塔/时间线…）骨架与提示词 | 模式 A 选每页框架；模式 B/C 画原生图示 |
 | `references/stylekit/narrative-and-review.md` | 5 种叙事模式（金字塔/故事弧/教学/展示/简报）+ 视觉验收清单 | 模式 C 出大纲前选论证结构；交付前验收 |
 | `references/stylekit/layout-engine.md` | 定位排版技术：7 规范版式坐标、静态审计阈值、字形级 lint 三规则、逐页闭环（蒸馏自 dsh-office/dsh-univer-office/pptx-harness） | 模式 B 摆位、compose 组装、手排页；配 `scripts/layout_audit.py` 终检 |
+| `references/stylekit/layout-library.md` | 版式几何数字库：画布/单位换算锚点、通用网格、字号阶梯与倍率、边界页与 11 种内容版式坐标表、间距常数（蒸馏自 pptwise/dsh-ppt 系 9 引擎） | 手排任何页面先抄坐标起步；选版式查配额上限 |
+| `references/stylekit/overflow-and-density.md` | 防溢出与密度：双层容量模型、降级链、孤字红线、密度上限表、覆盖率与装饰宪法、禁词汇表 | 写文案前定预算；页面发空/发满时查补满手法 |
+| `references/stylekit/audit-protocol.md` | 验收协议：静态几何门阈值全集、中文 fit 红线、视觉门协议、双门审查、验收合同、无渲染自检 | 交付前走完整流程；对用户报告三态（静态/渲染/视觉） |
+| `references/stylekit/edit-fidelity.md` | 编辑保真：原树编辑十二细则、占位符继承几何保护、最小改动纪律、无损撤销、能力边界哲学 | 改别人的 .pptx（改错字/更新数字/局部重排）必读 |
 
 用法约束：**风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立
 选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
 `--theme` 色系，imagegen 色板仅描述用色行为。摆位与间距问题查
-`layout-engine.md`；任何成品交付前跑 `python scripts/layout_audit.py 成品.pptx`
-（出画布/占位符残留=error 一票否决；重叠>10%/估算溢出>105%=warning 须修或注明）。
+`layout-engine.md` 与 `layout-library.md`；文案量与装饰查
+`overflow-and-density.md`；任何成品交付前跑 `python scripts/layout_audit.py 成品.pptx`
+（出画布/占位符残留=error 一票否决；重叠>10%/估算溢出>105%/末行孤字=warning
+须修或注明），再按 `audit-protocol.md` 过渲染与视觉门。
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（75 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（80 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |
@@ -174,7 +182,7 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 SKILL.md            # 本文件（唯一技能卡）
 scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + restore/（四层还原）+ imagegen/
 templates/deck-all/ # 577 页合辑模板（已预统一活力橙）+ detail（槽位容量）+ palette.json（页主色）
-references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事，蒸馏自 ppt-master）
+references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门，蒸馏自 ppt-master 与 9 个 PPT 引擎）
 tests/eval_slim.py  # 回归基线
 extras/ docs/       # 备线管线；教程
 ```

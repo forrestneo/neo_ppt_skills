@@ -36,14 +36,20 @@ skeletons, Chinese and English output.
 **硬门禁**：阶段 1 每页必须真实调用 imagegen；阶段 2 的三个图片层同样必须
 imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，不得用代码绘图冒充出图。
 
-**风格与叙事选型（stylekit）**：`references/stylekit/` 五篇蒸馏知识库——
+**风格与叙事选型（stylekit）**：`references/stylekit/` 九篇蒸馏知识库——
 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）四篇：18 种页面视觉
 风格、20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词片段与适配矩阵）、
 11 种图式构图骨架、5 种叙事模式 + 交付前视觉验收清单；定位排版一篇
 （[dsh-office](https://github.com/omdsh-dev/dsh-office) /
 [dsh-univer-office](https://github.com/dream-num/dsh-univer-office)（Apache-2.0）
 + pptx-harness）：7 规范版式坐标、静态审计阈值、字形级 lint 三规则、逐页闭环，
-配 `scripts/layout_audit.py` 成品终检（出画布/占位符=error，重叠/溢出估算=warning）。
+配 `scripts/layout_audit.py` 成品终检（出画布/占位符=error，重叠/溢出/孤字=warning）；
+排版四门四篇（蒸馏自 pptwise / dsh-ppt / dsh-ppt-maker / dsh-ppt-master /
+PTT-Studio / PPT-Design-Skill / dsh-ppt-canvas / dsh-office-tools 八引擎，均 MIT；
+deepseek-design 仅学习思想）：版式几何数字库（字号阶梯/版式坐标表/间距常数）、
+防溢出与密度控制（双层容量/降级链/装饰宪法/禁词汇表）、验收协议（静态门阈值
+全集/中文 fit 红线/视觉门/验收合同）、编辑保真（原树编辑十二细则/占位符继承
+保护/最小改动纪律）。
 风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立选型，
 一套 PPT 各定一种；颜色纪律仍归主题色系统管。
 
@@ -131,7 +137,7 @@ pip install python-pptx          # 快线依赖
 ## 仓库体积
 
 全仓 **6.7 MiB**：模板合辑（含参考图）6.3MB（577 页矢量、91,700 个矢量形状，
-deflate 已至压缩比地板）+ 脚本/文档/评测/stylekit 0.4MB。压缩手段：detail 走
+deflate 已至压缩比地板）+ 脚本/文档/评测/stylekit 0.5MB。压缩手段：detail 走
 minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内嵌 PNG 量化 256 色、
 参考图 JPEG q72。
 
@@ -140,10 +146,10 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 - 可编辑成品一律为原生形状 + 真文本框（主线的背景/骨架/图标层为图片，按
   Super 规范交付；快线与备线为 0 图片对象的全原生）
 - 快线槽位级容量与字号层级已经几何计算，出稿前过 12pt 容量硬校验与配色体系检查
-- 交付前三道门禁：`layout_audit.py`（静态排版：出画布/占位符/重叠/溢出估算）
+- 交付前三道门禁：`layout_audit.py`（静态排版：出画布/占位符/重叠/溢出/孤字）
   → `palette_check.py`（配色体系）→ LibreOffice 渲染目检 8 项
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **75 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **80 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权
@@ -156,7 +162,17 @@ narrative-and-review 四篇蒸馏自 [ppt-master](https://github.com/hugohe3/ppt
 （MIT License，Copyright (c) 2025-2026 Hugo He）；layout-engine 一篇蒸馏自
 [dsh-office](https://github.com/omdsh-dev/dsh-office) 与
 [dsh-univer-office](https://github.com/dream-num/dsh-univer-office)
-（Apache-2.0）及 pptx-harness（MIT），均依其许可证条款注明出处。
+（Apache-2.0）及 pptx-harness（MIT）；layout-library / overflow-and-density /
+audit-protocol / edit-fidelity 四篇蒸馏自 [pptwise](https://github.com/liustack/pptwise)、
+[dsh-ppt](https://github.com/STARDUSTLC666/dsh-ppt)、
+[dsh-ppt-maker](https://github.com/OMSociety/dsh-ppt-maker)、
+[dsh-ppt-master](https://github.com/weijianguizhou/dsh-ppt-master)、
+[PTT-Studio](https://github.com/ColdMagicchess/PTT-Studio)、
+[PPT-Design-Skill](https://github.com/sunchaokun/PPT-Design-Skill)、
+[dsh-ppt-canvas](https://github.com/hg1048596-pixel/dsh-ppt-canvas)、
+[dsh-office-tools](https://github.com/kw78/dsh-office-tools)（均 MIT），
+另参考 [deepseek-design](https://github.com/Devin-AXIS/deepseek-design)
+（Source Available License，仅学习思想未复制文本）；均依其许可证条款注明出处。
 
 ---
 
@@ -178,7 +194,7 @@ authoring, in Chinese or English.
 | **Fast · Template refill** | python-pptx only | You have content; pick pages from the bundled collection, refill slots, done in minutes |
 | **Fallback · Vector re-build** | rapidocr + ppt-master (optional) | You have slide images/screenshots that must become editable |
 
-**Style & narrative kit (stylekit)**: `references/stylekit/` holds five
+**Style & narrative kit (stylekit)**: `references/stylekit/` holds nine
 distilled reference files — four from [ppt-master](https://github.com/hugohe3/ppt-master)
 (MIT): 18 page visual styles, 20 imagegen rendering techniques + 14 image
 palettes (EN prompt fragments and compatibility matrices), 11 diagram
@@ -188,7 +204,15 @@ acceptance checklist; one on layout positioning distilled from
 [dsh-univer-office](https://github.com/dream-num/dsh-univer-office) (Apache-2.0)
 and pptx-harness: canonical slide geometry, static audit thresholds, glyph-level
 lint rules, per-page closed loop — with `scripts/layout_audit.py` as the final
-gate (off-canvas/placeholders = errors; overlaps/overflow estimates = warnings).
+gate (off-canvas/placeholders = errors; overlaps/overflow/orphan-line = warnings);
+four on layout craft distilled from eight engines (pptwise / dsh-ppt /
+dsh-ppt-maker / dsh-ppt-master / PTT-Studio / PPT-Design-Skill / dsh-ppt-canvas /
+dsh-office-tools, all MIT): a layout geometry library (type scales, per-layout
+coordinate tables, spacing constants), overflow & density control (dual-layer
+capacity, degradation chain, decoration constitution, banned phrases), an
+acceptance protocol (full static-gate thresholds, CJK fit rules, visual-gate
+loop, acceptance contracts), and edit fidelity (twelve rules for editing
+foreign .pptx files without breaking layout).
 Style (how it is drawn), palette (how color is applied)
 and narrative mode (how it argues) are chosen independently — one per deck;
 color discipline still belongs to the theme system.
@@ -241,7 +265,7 @@ pip install python-pptx
 
 **6.7 MiB** total: template collection incl. reference images 6.3MB (577-page
 vector collection, 91,700 vector shapes — deflate is already at the compression
-floor) + scripts/docs/tests/stylekit 0.4MB.
+floor) + scripts/docs/tests/stylekit 0.5MB.
 
 ## License
 

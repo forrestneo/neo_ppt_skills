@@ -11,6 +11,8 @@ references/stylekit/layout-engine.md 一致。对任意成品（模式 B 还原�
   overlap          文本形状两两包围盒重叠 >较小盒面积 10%（warning）
   overflow-est     启发式溢出：CJK 全角 1.0em、其余 0.53em、行高 1.25，
                    估算高 >可用高 105%（warning）
+  orphan-line      中文孤字：折行后末行仅 ~1 个全角字宽（warning，修复靠
+                   重排行宽或删非必要措辞，勿缩全段字号）
   font-ea-missing  run 设了 latin 却无 ea 且含中文（warning，中文最大坑）
 
 用法:
@@ -107,6 +109,12 @@ def _text_findings(shape, slide_no, out):
         except Exception:
             pass
         total_h += int(lines * ls * pt * _EM)
+        if lines >= 2:
+            last_w = _est_width_emu(para.text, pt) - (lines - 1) * avail_w
+            if last_w <= int(1.1 * pt * _EM):
+                out.append(Finding(
+                    "warning", "orphan-line", slide_no, shape.shape_id,
+                    f"末行孤字: …{para.text[-6:]!r}（重排行宽或删非必要措辞）"))
         for r in para.runs:
             try:
                 rPr = r._r.rPr
