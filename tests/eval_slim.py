@@ -54,6 +54,8 @@ def t_structure():
             "references/stylekit/overflow-and-density.md",
             "references/stylekit/audit-protocol.md",
             "references/stylekit/edit-fidelity.md",
+            "references/stylekit/style-extraction.md",
+            "references/stylekit/fidelity-and-review.md",
             "scripts/layout_audit.py",
             "extras/pipeline.md"]
     for rel in need:
@@ -71,11 +73,13 @@ def t_structure():
               and cnt("overflow-and-density.md", r"^## ") >= 7
               and cnt("audit-protocol.md", r"^## ") >= 7
               and cnt("edit-fidelity.md", r"^## ") >= 7
+              and cnt("style-extraction.md", r"^## ") >= 5
+              and cnt("fidelity-and-review.md", r"^## ") >= 5
               and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8")
               and "pptwise" in (sk / "layout-library.md").read_text(encoding="utf-8")
               and "dsh-ppt-canvas" in (sk / "edit-fidelity.md").read_text(encoding="utf-8"))
     check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收 / "
-          "4 篇排版新蒸馏各 ≥7 节含出处）", ok_cnt)
+          "4 篇排版四门各 ≥7 节 / luobo 两篇各 ≥5 节，含出处）", ok_cnt)
 
     # layout_audit 端到端：好稿放行（rc=0）、越界+重叠坏稿拦截（rc=1）
     from pptx import Presentation as _Prs

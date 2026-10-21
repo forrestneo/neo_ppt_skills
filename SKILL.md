@@ -136,10 +136,10 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 
 ## 风格库与叙事选型（stylekit）
 
-蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 9 个
+蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 10 个
 DSH/独立 PPT 引擎（pptwise、dsh-ppt、dsh-ppt-maker、dsh-ppt-master、PTT-Studio、
-PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design）的知识库，
-各篇头部注明来源与许可；按需查阅、只读选中的一篇：
+PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design、luobo-ppt）
+的知识库，各篇头部注明来源与许可；按需查阅、只读选中的一篇：
 
 | 文件 | 内容 | 何时查 |
 |---|---|---|
@@ -152,6 +152,8 @@ PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design）的知�
 | `references/stylekit/overflow-and-density.md` | 防溢出与密度：双层容量模型、降级链、孤字红线、密度上限表、覆盖率与装饰宪法、禁词汇表 | 写文案前定预算；页面发空/发满时查补满手法 |
 | `references/stylekit/audit-protocol.md` | 验收协议：静态几何门阈值全集、中文 fit 红线、视觉门协议、双门审查、验收合同、无渲染自检 | 交付前走完整流程；对用户报告三态（静态/渲染/视觉） |
 | `references/stylekit/edit-fidelity.md` | 编辑保真：原树编辑十二细则、占位符继承几何保护、最小改动纪律、无损撤销、能力边界哲学 | 改别人的 .pptx（改错字/更新数字/局部重排）必读 |
+| `references/stylekit/style-extraction.md` | 风格抽取与美化：参考图→风格单（脚本管数字/模型管气质）、14 套预设组织（rules 与 forbid 分离）、三样张选型、品牌套件（VI 手册→色板吸附） | 用户给参考图要"照这个风格改"、给企业 VI 手册、或挑风格定不下来时 |
+| `references/stylekit/fidelity-and-review.md` | 内容保真与自评：安静的改动五类门禁、QA 防作弊三设计、五维自评（统一/层级/细节/传达/节奏）、大纲门禁（结论式标题判定/幽灵稿） | 美化改稿交付前、内容生成出大纲后 |
 
 用法约束：**风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立
 选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
@@ -163,7 +165,7 @@ PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design）的知�
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（80 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（82 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |
@@ -182,7 +184,7 @@ PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design）的知�
 SKILL.md            # 本文件（唯一技能卡）
 scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + restore/（四层还原）+ imagegen/
 templates/deck-all/ # 577 页合辑模板（已预统一活力橙）+ detail（槽位容量）+ palette.json（页主色）
-references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门，蒸馏自 ppt-master 与 9 个 PPT 引擎）
+references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门·风格抽取·保真自评，蒸馏自 ppt-master 与 10 个 PPT 引擎）
 tests/eval_slim.py  # 回归基线
 extras/ docs/       # 备线管线；教程
 ```
