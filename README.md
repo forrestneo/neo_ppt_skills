@@ -99,9 +99,11 @@ ppt-master 代理施工规格与三工艺编排手册，流程见 `extras/pipeli
 中文字号→pt 换算：初号42 / 小初36 / 一号26 / 二号22 / 小二18 / 三号16 /
 四号14 / **小四12** / 五号10.5 / 小五9 / 六号7.5 / 七号5.5 / 八号5。
 
-标准配色主题（`scripts/palettes.json`）：商务蓝 Business Blue（金融/科技/通用）、
-典雅红 Classic Red（政务/庆典/年报）、活力橙 Vibrant Orange（营销/运营/活动）、
-青绿清新 Teal Fresh（环保/健康/数据）。整套稿选一套贯穿，不发明体系外颜色。
+标准配色主题六套（`scripts/palettes.json`）：商务蓝 Business Blue（金融/科技）、
+典雅红 Classic Red（政务/庆典/年报）、活力橙 Vibrant Orange（默认；营销/运营）、
+青绿清新 Teal Fresh（环保/健康/数据）、紫韵 Noble Purple（创意/文创）、
+金香 Champagne Gold（颁奖/高端商务）。出稿前确认用户提示词要求的色系并传
+`--theme <id>` 整套统一；也支持自定义色列表 `--theme "#1F4E79,#2E75B6"`。
 
 ## 安装
 

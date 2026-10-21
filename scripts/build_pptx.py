@@ -544,6 +544,12 @@ def run(args) -> int:
             thr = float(getattr(args, "min_font", None) or MIN_FONT_PT)
             theme_id = getattr(args, "theme", None)
             theme = themes.get(theme_id) if theme_id else None
+            if theme is None and theme_id and (theme_id.startswith("#") or "," in theme_id):
+                # 自定义色列表：#AABBCC,#336699,…（按序作为主/辅/强调）
+                colors_custom = [c.strip().lstrip("#").upper() for c in theme_id.split(",") if c.strip()]
+                theme = {"id": "custom", "name": "自定义配色",
+                         "hue": _hue_deg(colors_custom[0]) if colors_custom else 0}
+                colors = colors_custom
             if theme is None:
                 # 自动：多数页主色 hue → 最近标准主题
                 doms = [pal.get(str(sn), {}).get("dominant") for sn in selected
@@ -557,7 +563,7 @@ def run(args) -> int:
                         best, bd = t, d
                 theme = best
             if theme:
-                colors = theme_color_list(theme)
+                colors = colors_custom if (theme_id and theme_id.startswith("#")) else theme_color_list(theme)
                 recolored = 0
                 for sn in selected:
                     n, _mp = unify_slide_colors(prs.slides[sn - 1], colors)
@@ -660,7 +666,7 @@ def run(args) -> int:
 def build(template, edits, output, detail=None, strict=False,
           dry_run=False, no_lint=False, min_font=MIN_FONT_PT,
           allow_small_font=False, no_min_font=False,
-          allow_mixed_palette=False) -> int:
+          allow_mixed_palette=False, theme=None) -> int:
     """Programmatic entry point: identical to the CLI, with explicit arguments."""
     from types import SimpleNamespace
     return run(SimpleNamespace(
@@ -668,7 +674,8 @@ def build(template, edits, output, detail=None, strict=False,
         detail=Path(detail) if detail else None,
         strict=strict, dry_run=dry_run, no_lint=no_lint,
         min_font=min_font, allow_small_font=allow_small_font,
-        no_min_font=no_min_font, allow_mixed_palette=allow_mixed_palette))
+        no_min_font=no_min_font, allow_mixed_palette=allow_mixed_palette,
+        theme=theme))
 
 
 def main() -> int:

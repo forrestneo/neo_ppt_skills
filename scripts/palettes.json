@@ -91,6 +91,41 @@
         "健康",
         "数据"
       ]
+    },
+    {
+      "id": "purple-noble",
+      "name": "紫韵 Noble Purple",
+      "hue": 275,
+      "primary": "5B2D90",
+      "secondary": "7C4DBE",
+      "accents": [
+        "9B6FD0",
+        "C9ADE8",
+        "E8D7F7"
+      ],
+      "use_cases": [
+        "创意",
+        "奢侈品",
+        "文创"
+      ]
+    },
+    {
+      "id": "gold-champagne",
+      "name": "金香 Champagne Gold",
+      "hue": 42,
+      "primary": "8A6D1F",
+      "secondary": "B8944A",
+      "accents": [
+        "D4AF37",
+        "E8CF8A",
+        "F5EBCE"
+      ],
+      "use_cases": [
+        "颁奖",
+        "高端商务",
+        "年会"
+      ]
     }
-  ]
+  ],
+  "default_theme": "orange-vitality"
 }

@@ -115,6 +115,7 @@ def cmd_build(argv):
     build_tmp = _confine("deck_build_tmp.pptx")
     sets = []
     allow_small_font = allow_mixed = False
+    theme_id = None
     while "--set" in argv:
         i = argv.index("--set"); sets.append(argv[i + 1]); del argv[i:i + 2]
     if "--allow-small-font" in argv:
@@ -123,6 +124,9 @@ def cmd_build(argv):
     if "--allow-mixed-palette" in argv:
         allow_mixed = True
         argv.remove("--allow-mixed-palette")
+    if "--theme" in argv:
+        i = argv.index("--theme")
+        theme_id = argv[i + 1]; del argv[i:i + 2]
     pairs = list(zip(argv[0::2], argv[1::2]))
     if not pairs and not sets:
         print("用法: build 页码 \"新标题\" ... [--set 页码:slot_id=文本 ...]  （默认输出 deck_out.pptx，生成后自行改名）")
@@ -163,7 +167,7 @@ def cmd_build(argv):
         detail_path = os.path.join(tpl_dir, "detail.json")
     rc = build_pptx.build(os.path.join(tpl_dir, "template.pptx"), tmp, build_tmp,
                           detail=detail_path, allow_small_font=allow_small_font,
-                          allow_mixed_palette=allow_mixed)
+                          allow_mixed_palette=allow_mixed, theme=theme_id)
     if rc != 0 or not os.path.isfile(build_tmp):
         print("✗ 构建未产出中间文件，中止")
         sys.exit(2)
