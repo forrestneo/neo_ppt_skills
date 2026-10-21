@@ -36,10 +36,14 @@ skeletons, Chinese and English output.
 **硬门禁**：阶段 1 每页必须真实调用 imagegen；阶段 2 的三个图片层同样必须
 imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，不得用代码绘图冒充出图。
 
-**风格与叙事选型（stylekit）**：`references/stylekit/` 四篇蒸馏自
-[ppt-master](https://github.com/hugohe3/ppt-master)（MIT）的选型知识库——
-18 种页面视觉风格、20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词
-片段与适配矩阵）、11 种图式构图骨架、5 种叙事模式 + 交付前视觉验收清单。
+**风格与叙事选型（stylekit）**：`references/stylekit/` 五篇蒸馏知识库——
+[ppt-master](https://github.com/hugohe3/ppt-master)（MIT）四篇：18 种页面视觉
+风格、20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词片段与适配矩阵）、
+11 种图式构图骨架、5 种叙事模式 + 交付前视觉验收清单；定位排版一篇
+（[dsh-office](https://github.com/omdsh-dev/dsh-office) /
+[dsh-univer-office](https://github.com/dream-num/dsh-univer-office)（Apache-2.0）
++ pptx-harness）：7 规范版式坐标、静态审计阈值、字形级 lint 三规则、逐页闭环，
+配 `scripts/layout_audit.py` 成品终检（出画布/占位符=error，重叠/溢出估算=warning）。
 风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立选型，
 一套 PPT 各定一种；颜色纪律仍归主题色系统管。
 
@@ -136,8 +140,10 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 - 可编辑成品一律为原生形状 + 真文本框（主线的背景/骨架/图标层为图片，按
   Super 规范交付；快线与备线为 0 图片对象的全原生）
 - 快线槽位级容量与字号层级已经几何计算，出稿前过 12pt 容量硬校验与配色体系检查
+- 交付前三道门禁：`layout_audit.py`（静态排版：出画布/占位符/重叠/溢出估算）
+  → `palette_check.py`（配色体系）→ LibreOffice 渲染目检 8 项
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **71 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **75 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权
@@ -145,8 +151,12 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 合辑全部页面由作者对公开商务 PPT 预览图做逐页矢量重绘而来，非第三方模板
 素材，可自由使用与二次修改。
 
-`references/stylekit/` 四篇蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)
-（MIT License，Copyright (c) 2025-2026 Hugo He），依其许可证条款注明出处。
+`references/stylekit/` 中 visual-styles / imagegen-styles / image-type-templates /
+narrative-and-review 四篇蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)
+（MIT License，Copyright (c) 2025-2026 Hugo He）；layout-engine 一篇蒸馏自
+[dsh-office](https://github.com/omdsh-dev/dsh-office) 与
+[dsh-univer-office](https://github.com/dream-num/dsh-univer-office)
+（Apache-2.0）及 pptx-harness（MIT），均依其许可证条款注明出处。
 
 ---
 
@@ -168,12 +178,18 @@ authoring, in Chinese or English.
 | **Fast · Template refill** | python-pptx only | You have content; pick pages from the bundled collection, refill slots, done in minutes |
 | **Fallback · Vector re-build** | rapidocr + ppt-master (optional) | You have slide images/screenshots that must become editable |
 
-**Style & narrative kit (stylekit)**: `references/stylekit/` holds four
-reference files distilled from [ppt-master](https://github.com/hugohe3/ppt-master)
-(MIT) — 18 page visual styles, 20 imagegen rendering techniques + 14 image
-palettes (with EN prompt fragments and compatibility matrices), 11 diagram
+**Style & narrative kit (stylekit)**: `references/stylekit/` holds five
+distilled reference files — four from [ppt-master](https://github.com/hugohe3/ppt-master)
+(MIT): 18 page visual styles, 20 imagegen rendering techniques + 14 image
+palettes (EN prompt fragments and compatibility matrices), 11 diagram
 composition blueprints, and 5 narrative modes plus a pre-delivery visual
-acceptance checklist. Style (how it is drawn), palette (how color is applied)
+acceptance checklist; one on layout positioning distilled from
+[dsh-office](https://github.com/omdsh-dev/dsh-office) /
+[dsh-univer-office](https://github.com/dream-num/dsh-univer-office) (Apache-2.0)
+and pptx-harness: canonical slide geometry, static audit thresholds, glyph-level
+lint rules, per-page closed loop — with `scripts/layout_audit.py` as the final
+gate (off-canvas/placeholders = errors; overlaps/overflow estimates = warnings).
+Style (how it is drawn), palette (how color is applied)
 and narrative mode (how it argues) are chosen independently — one per deck;
 color discipline still belongs to the theme system.
 
@@ -199,7 +215,7 @@ text keeps the template's latin typeface slot.
 ## Editing iron rules (engine-enforced, not advice)
 
 Codified in `scripts/build_pptx.py` and guarded by `tests/eval_slim.py`
-(71-item regression baseline). Violations refuse to save; `--allow-*` flags
+(75-item regression baseline). Violations refuse to save; `--allow-*` flags
 are explicit opt-outs:
 
 | Rule | Meaning | Engine behavior |

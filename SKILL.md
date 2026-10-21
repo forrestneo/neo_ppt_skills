@@ -145,14 +145,17 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 | `references/stylekit/imagegen-styles.md` | 20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词片段与适配矩阵） | 模式 A 的 A3 组提示词 |
 | `references/stylekit/image-type-templates.md` | 11 种图式构图（漏斗/矩阵/金字塔/时间线…）骨架与提示词 | 模式 A 选每页框架；模式 B/C 画原生图示 |
 | `references/stylekit/narrative-and-review.md` | 5 种叙事模式（金字塔/故事弧/教学/展示/简报）+ 视觉验收清单 | 模式 C 出大纲前选论证结构；交付前验收 |
+| `references/stylekit/layout-engine.md` | 定位排版技术：7 规范版式坐标、静态审计阈值、字形级 lint 三规则、逐页闭环（蒸馏自 dsh-office/dsh-univer-office/pptx-harness） | 模式 B 摆位、compose 组装、手排页；配 `scripts/layout_audit.py` 终检 |
 
 用法约束：**风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立
 选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
-`--theme` 色系，imagegen 色板仅描述用色行为。
+`--theme` 色系，imagegen 色板仅描述用色行为。摆位与间距问题查
+`layout-engine.md`；任何成品交付前跑 `python scripts/layout_audit.py 成品.pptx`
+（出画布/占位符残留=error 一票否决；重叠>10%/估算溢出>105%=warning 须修或注明）。
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（71 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（75 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |

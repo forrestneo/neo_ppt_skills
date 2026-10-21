@@ -49,6 +49,8 @@ def t_structure():
             "references/stylekit/imagegen-styles.md",
             "references/stylekit/image-type-templates.md",
             "references/stylekit/narrative-and-review.md",
+            "references/stylekit/layout-engine.md",
+            "scripts/layout_audit.py",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
@@ -63,6 +65,34 @@ def t_structure():
               and cnt("narrative-and-review.md", r"^## ") >= 5
               and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8"))
     check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收，含出处）", ok_cnt)
+
+    # layout_audit 端到端：好稿放行（rc=0）、越界+重叠坏稿拦截（rc=1）
+    from pptx import Presentation as _Prs
+    from pptx.util import Inches as _In
+    with tempfile.TemporaryDirectory() as td:
+        def _mk(path, bad):
+            prs = _Prs()
+            prs.slide_width, prs.slide_height = _In(13.333), _In(7.5)
+            s = prs.slides.add_slide(prs.slide_layouts[6])
+            if bad:
+                tb = s.shapes.add_textbox(_In(12), _In(7), _In(3), _In(2))
+                tb.text_frame.text = "越界"
+                t2 = s.shapes.add_textbox(_In(1), _In(1), _In(4), _In(2))
+                t2.text_frame.text = "甲盒"
+                t3 = s.shapes.add_textbox(_In(2), _In(1.5), _In(4), _In(2))
+                t3.text_frame.text = "乙盒"
+            else:
+                tb = s.shapes.add_textbox(_In(1), _In(1), _In(4), _In(2))
+                tb.text_frame.text = "画布内正常文本"
+            prs.save(path)
+        _mk(os.path.join(td, "good.pptx"), False)
+        _mk(os.path.join(td, "bad.pptx"), True)
+        r_good = run([BUILD.parent / "layout_audit.py", os.path.join(td, "good.pptx")])
+        r_bad = run([BUILD.parent / "layout_audit.py", os.path.join(td, "bad.pptx")])
+        check("layout_audit 好稿放行 rc=0", r_good.returncode == 0)
+        check("layout_audit 坏稿拦截（越界 error + 重叠 warning，rc=1）",
+              r_bad.returncode == 1 and "out-of-bounds" in r_bad.stdout
+              and "overlap" in r_bad.stdout)
 
     gone = ["templates/bank-lite", "use_bank_lite.py",
             "GordenSuperPPTSkill", "GordenImagePPTGen", "GordenImage2PPTX",
