@@ -32,6 +32,7 @@ description: >-
 ```
 
 - [ ] 阶段1 完整跑模式 A（A1–A5），产出 outline.json、prompts/、imagegen-manifest.json、slides/、图片型 .pptx
+- [ ] 出大纲前先选叙事模式（pyramid/narrative/instructional/showcase/briefing，查 stylekit 的 narrative-and-review）；标题写断言式（写发现不写主题）
 - [ ] 阶段2 对每张图完整跑模式 B（B0–B9），四层缺一不可
 - [ ] 一次性交付：① 页图片 ② 每页背景图 ③ 骨架图 ④ 图标/装饰 ⑤ layout.json ⑥ 图片型 PPTX ⑦ 可编辑 PPTX
 - [ ] 比例全程统一（默认 16:9）；配色统一；数据零编造；语言跟随用户；页脚干净
@@ -60,9 +61,9 @@ HTML、Canvas、matplotlib、PPT shapes、截图渲染；禁止先做可编辑 P
 不重复；全篇统一一套配色。
 
 **工作流**：
-- [ ] A1 确认风格/受众/页数/语言
-- [ ] A2 outline.json：逐页指派不重复框架、统一配色、写厚 detailed_content
-- [ ] A3 每页 self-contained 提示词（含全部真实文字），存 prompts/NN-*.md
+- [ ] A1 确认风格/受众/页数/语言（用户点名视觉风格查 stylekit 的 visual-styles）
+- [ ] A2 outline.json：逐页指派不重复框架（选型查 stylekit 的 image-type-templates）、统一配色、写厚 detailed_content
+- [ ] A3 每页 self-contained 提示词（含全部真实文字），存 prompts/NN-*.md（组词：图式骨架 × 渲染手法 × 色板行为，词汇查 imagegen-styles）
 - [ ] A4 逐页调用 imagegen → 复制源图 → 写 imagegen-manifest.json（缺 manifest 即失败）
 - [ ] A5 合成图片型 .pptx：`python scripts/imagegen/compose_pptx.py deck.json out.pptx`
 
@@ -133,9 +134,25 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 英文稿同理——容量按视觉宽度自动换算（1 汉字 ≈ 2 英文字符），字体沿用
 模板 latin 槽位。
 
+## 风格库与叙事选型（stylekit）
+
+蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）的知识库，
+按需查阅、只读选中的一篇：
+
+| 文件 | 内容 | 何时查 |
+|---|---|---|
+| `references/stylekit/visual-styles.md` | 18 种页面视觉风格（瑞士极简/孟菲斯/水墨/玻璃拟态…）速查+逐式规则 | 用户点名风格，或模式 A 定画面气质 |
+| `references/stylekit/imagegen-styles.md` | 20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词片段与适配矩阵） | 模式 A 的 A3 组提示词 |
+| `references/stylekit/image-type-templates.md` | 11 种图式构图（漏斗/矩阵/金字塔/时间线…）骨架与提示词 | 模式 A 选每页框架；模式 B/C 画原生图示 |
+| `references/stylekit/narrative-and-review.md` | 5 种叙事模式（金字塔/故事弧/教学/展示/简报）+ 视觉验收清单 | 模式 C 出大纲前选论证结构；交付前验收 |
+
+用法约束：**风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立
+选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
+`--theme` 色系，imagegen 色板仅描述用色行为。
+
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（57 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（71 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |
@@ -153,12 +170,13 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 ```
 SKILL.md            # 本文件（唯一技能卡）
 scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + restore/（四层还原）+ imagegen/
-templates/deck-all/ # 577 页合辑模板 + detail（槽位容量）+ palette.json（页主色）
+templates/deck-all/ # 577 页合辑模板（已预统一活力橙）+ detail（槽位容量）+ palette.json（页主色）
+references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事，蒸馏自 ppt-master）
 tests/eval_slim.py  # 回归基线
 extras/ docs/       # 备线管线；教程
 ```
 
 ## 仓库体积
 
-全仓 **8.53 MiB**：模板 6.3MB（577 页矢量合辑、91,700 个矢量形状，deflate 已至
-压缩地板）+ 参考图 1.9MB + 脚本/文档/评测 0.4MB。
+全仓 **6.7 MiB**：模板合辑（含参考图）6.3MB（577 页矢量、91,700 个矢量形状，
+deflate 已至压缩地板）+ 脚本/文档/评测/stylekit 0.4MB。

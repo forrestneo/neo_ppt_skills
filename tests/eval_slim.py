@@ -45,9 +45,24 @@ def t_structure():
             "scripts/restore/compose_pptx.py", "scripts/restore/chroma_key.py",
             "scripts/imagegen/compose_pptx.py", "references/mode-a-imagegen.md",
             "references/mode-b-rebuild.md", "references/pipeline.md",
+            "references/stylekit/visual-styles.md",
+            "references/stylekit/imagegen-styles.md",
+            "references/stylekit/image-type-templates.md",
+            "references/stylekit/narrative-and-review.md",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
+
+    sk = ROOT / "references" / "stylekit"
+    def cnt(name, pat):
+        txt = (sk / name).read_text(encoding="utf-8")
+        return len(re.findall(pat, txt, re.M))
+    ok_cnt = (cnt("visual-styles.md", r"^## [a-z0-9-]+（") == 18
+              and cnt("imagegen-styles.md", r"^### ") >= 34
+              and cnt("image-type-templates.md", r"^## [a-z0-9-]+（") == 11
+              and cnt("narrative-and-review.md", r"^## ") >= 5
+              and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8"))
+    check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收，含出处）", ok_cnt)
 
     gone = ["templates/bank-lite", "use_bank_lite.py",
             "GordenSuperPPTSkill", "GordenImagePPTGen", "GordenImage2PPTX",

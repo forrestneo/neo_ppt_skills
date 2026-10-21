@@ -36,6 +36,13 @@ skeletons, Chinese and English output.
 **硬门禁**：阶段 1 每页必须真实调用 imagegen；阶段 2 的三个图片层同样必须
 imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，不得用代码绘图冒充出图。
 
+**风格与叙事选型（stylekit）**：`references/stylekit/` 四篇蒸馏自
+[ppt-master](https://github.com/hugohe3/ppt-master)（MIT）的选型知识库——
+18 种页面视觉风格、20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词
+片段与适配矩阵）、11 种图式构图骨架、5 种叙事模式 + 交付前视觉验收清单。
+风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立选型，
+一套 PPT 各定一种；颜色纪律仍归主题色系统管。
+
 ### 快线：合辑模板换字（deck-all，577 页）
 
 `templates/deck-all` 是 27 套商务演示版式的矢量合辑（577 页，每页 use_for 带
@@ -119,8 +126,8 @@ pip install python-pptx          # 快线依赖
 
 ## 仓库体积
 
-全仓 **8.53 MiB**：模板 6.3MB（577 页矢量合辑、91,700 个矢量形状，deflate 已至
-压缩比地板）+ 参考图 1.9MB + 脚本/文档/评测 0.4MB。压缩手段：detail 走
+全仓 **6.7 MiB**：模板合辑（含参考图）6.3MB（577 页矢量、91,700 个矢量形状，
+deflate 已至压缩比地板）+ 脚本/文档/评测/stylekit 0.4MB。压缩手段：detail 走
 minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内嵌 PNG 量化 256 色、
 参考图 JPEG q72。
 
@@ -130,13 +137,16 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
   Super 规范交付；快线与备线为 0 图片对象的全原生）
 - 快线槽位级容量与字号层级已经几何计算，出稿前过 12pt 容量硬校验与配色体系检查
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **57 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **71 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权
 
 合辑全部页面由作者对公开商务 PPT 预览图做逐页矢量重绘而来，非第三方模板
 素材，可自由使用与二次修改。
+
+`references/stylekit/` 四篇蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)
+（MIT License，Copyright (c) 2025-2026 Hugo He），依其许可证条款注明出处。
 
 ---
 
@@ -157,6 +167,15 @@ authoring, in Chinese or English.
 | **Main · Super end-to-end** | Codex host + imagegen (hard gate) | Full deliverable, both beautiful and editable |
 | **Fast · Template refill** | python-pptx only | You have content; pick pages from the bundled collection, refill slots, done in minutes |
 | **Fallback · Vector re-build** | rapidocr + ppt-master (optional) | You have slide images/screenshots that must become editable |
+
+**Style & narrative kit (stylekit)**: `references/stylekit/` holds four
+reference files distilled from [ppt-master](https://github.com/hugohe3/ppt-master)
+(MIT) — 18 page visual styles, 20 imagegen rendering techniques + 14 image
+palettes (with EN prompt fragments and compatibility matrices), 11 diagram
+composition blueprints, and 5 narrative modes plus a pre-delivery visual
+acceptance checklist. Style (how it is drawn), palette (how color is applied)
+and narrative mode (how it argues) are chosen independently — one per deck;
+color discipline still belongs to the theme system.
 
 ## Fast pipeline: the deck-all collection (577 pages)
 
@@ -180,14 +199,14 @@ text keeps the template's latin typeface slot.
 ## Editing iron rules (engine-enforced, not advice)
 
 Codified in `scripts/build_pptx.py` and guarded by `tests/eval_slim.py`
-(57-item regression baseline). Violations refuse to save; `--allow-*` flags
+(71-item regression baseline). Violations refuse to save; `--allow-*` flags
 are explicit opt-outs:
 
 | Rule | Meaning | Engine behavior |
 |---|---|---|
 | **Body ≥ 12pt (小四)** | All body slots (role=正文) are typeset at 12pt; titles/chips/numerals/mockup micro-text exempt | Body slots auto-set to 12pt on refill; text over the 12pt capacity is rejected |
 | **Budget-first writing** | Each slot's 12pt budget is visible via `show` (`12pt≤N units`) | Write within budget; condense wording instead of shrinking fonts |
-| **One palette per deck** | Dominant hue of every selected page must belong to one system (circular distance ≤30°); four standard themes in `scripts/palettes.json` | Mixed-system selection is rejected |
+| **One palette per deck** | The template's 577 pages are pre-unified to a single vitality-orange system (batch hue remap via `scripts/recolor_orange.py`); 13 themes in `scripts/palettes.json`, switch with `--theme <id>` | Saturated colors are mapped to the theme at build time; mixed-system selection is rejected |
 | **Final palette check** | The finished file is scanned for actual colors; pages with >50% off-system accent mass cannot ship | `palette_check.py` runs automatically; exit code 3 on failure |
 
 Chinese font size → pt: 初号42 / 小初36 / 一号26 / 二号22 / 小二18 / 三号16 /
@@ -204,9 +223,9 @@ pip install python-pptx
 
 ## Repo size
 
-**8.53 MiB** total: templates 6.3MB (577-page vector collection, 91,700 vector
-shapes — deflate is already at the compression floor) + reference images 1.9MB
-+ scripts/docs/tests 0.4MB.
+**6.7 MiB** total: template collection incl. reference images 6.3MB (577-page
+vector collection, 91,700 vector shapes — deflate is already at the compression
+floor) + scripts/docs/tests/stylekit 0.4MB.
 
 ## License
 

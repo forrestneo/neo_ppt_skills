@@ -76,6 +76,8 @@
 | 中心辐射 | Hub-Spoke 放射 |
 
 同一套 PPT 内每页选不同形式；不要在图上标注形式名称。
+需要更细的构图骨架与可直接抄的英文提示词（漏斗每级收窄比例、金字塔画幅、
+时间线钟点方位等 11 式）：查 [stylekit/image-type-templates.md](stylekit/image-type-templates.md)。
 
 ## 5. 风格库
 
@@ -87,7 +89,13 @@
   （宣纸+晕染+印章红）/ 手绘 sketch / 科技蓝图（网格+电路线）/ 杂志编辑
   （强对比大标题）/ 暗黑大气。
 
-切换时把基调写进模板【整体风格】，全套视觉语言保持一致。
+用户点名其他风格（瑞士极简/孟菲斯/剪纸/像素画…共 18 式）：
+查 [stylekit/visual-styles.md](stylekit/visual-styles.md)。
+组提示词时的渲染手法词汇（20 式，含 EN 关键短语）与色板用色行为（14 套，
+含适配/互斥矩阵）：查 [stylekit/imagegen-styles.md](stylekit/imagegen-styles.md)。
+
+切换时把基调写进模板【整体风格】，全套视觉语言保持一致；风格只定画法，
+颜色纪律仍守上节（避免大面积纯绿）。
 
 ## 6. 配色与字体
 
