@@ -43,17 +43,21 @@ def t_structure():
             "templates/MANIFEST.json", "templates/deck-all/template.pptx",
             "templates/deck-all/detail.json.gz",
             "scripts/restore/compose_pptx.py", "scripts/restore/chroma_key.py",
-            "scripts/imagegen/compose_pptx.py", "extras/pipeline.md"]
+            "scripts/imagegen/compose_pptx.py", "references/mode-a-imagegen.md",
+            "references/mode-b-rebuild.md", "references/pipeline.md",
+            "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
 
     gone = ["templates/bank-lite", "use_bank_lite.py",
             "GordenSuperPPTSkill", "GordenImagePPTGen", "GordenImage2PPTX",
-            "references", "assets"]
+            "assets"]
     bad = [str(f.relative_to(ROOT)) for f in ROOT.rglob("*")
            if f.is_file() and f.suffix in (".md", ".py", ".json")
            and "__pycache__" not in f.parts and ".git" not in f.parts
-           and "Gorden" in f.read_text(encoding="utf-8", errors="ignore")]
+           and ("Gorden" in f.read_text(encoding="utf-8", errors="ignore")
+                or "reference-slides" in f.read_text(encoding="utf-8", errors="ignore")
+                or "runtime-notes" in f.read_text(encoding="utf-8", errors="ignore"))]
     for rel in gone:
         check("冗余已删 " + rel, not (ROOT / rel).exists())
 

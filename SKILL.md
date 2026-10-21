@@ -1,5 +1,5 @@
 ---
-name: neo_ppt_skills
+name: neo-ppt-skills
 description: >-
   行业中立的端到端 PPT 生产技能（任意行业，中英文皆可）。四种工作模式：
   A 生成图片型 PPT（imagegen 逐页出图）；B 把 PPT 图片/截图还原为可编辑 PPTX（四层强制）；
@@ -57,8 +57,7 @@ HTML、Canvas、matplotlib、PPT shapes、截图渲染；禁止先做可编辑 P
 **默认风格**：信息密度极高、模块化网格、每页一个不重复的高阶框架（Bento/
 同心雷达/鱼骨/漏斗/3D 阶梯…）。简单 = 不合格。每页 ≥4 个并列模块、每模块
 标题+2~3 要点+1 特大指标，外加导语+底部横幅（≈20+ 信息点/页）。每页框架
-不重复；全篇统一一套配色（可从 `assets/reference-slides/` 挑结构相近的参考图
-提取布局骨架，不照搬其文字/配色）。
+不重复；全篇统一一套配色。
 
 **工作流**：
 - [ ] A1 确认风格/受众/页数/语言
@@ -67,8 +66,7 @@ HTML、Canvas、matplotlib、PPT shapes、截图渲染；禁止先做可编辑 P
 - [ ] A4 逐页调用 imagegen → 复制源图 → 写 imagegen-manifest.json（缺 manifest 即失败）
 - [ ] A5 合成图片型 .pptx：`python scripts/imagegen/compose_pptx.py deck.json out.pptx`
 
-运行时细节与提示词体系：[references/runtime-notes-gen.md](references/runtime-notes-gen.md)、
-[references/image-prompt-guide.md](references/image-prompt-guide.md)
+提示词体系与执行要点全文：[references/mode-a-imagegen.md](references/mode-a-imagegen.md)
 
 ## 模式 B：图片 → 可编辑 PPTX（四层强制）
 
@@ -104,9 +102,8 @@ HTML、Canvas、matplotlib、PPT shapes、截图渲染；禁止先做可编辑 P
 **生成证据**：每页必须写 imagegen-assets-manifest.json（B2/B3/B4 的
 generated_source/prompt_file/backend/copied_to），任一层非 imagegen 来源即失败重做。
 
-明细流水线、提示词全文、坐标/字号换算、QA 反馈环：
-[references/image-to-pptx.md](references/image-to-pptx.md)、
-[references/runtime-notes.md](references/runtime-notes.md)
+B2/B3/B4 固定提示词全文、坐标/字号换算、QA 门禁：
+[references/mode-b-rebuild.md](references/mode-b-rebuild.md)
 
 **关键换算与 QA 顺序**：
 - 坐标：layout.json 用 `units:"fraction"`；先量源图像素 bbox，`x=x_px/ref_width`
