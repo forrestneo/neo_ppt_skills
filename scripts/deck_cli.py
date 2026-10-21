@@ -5,6 +5,8 @@
   python3 deck_cli.py build -o 输出.pptx 页码 "新标题" [页码 "标题" ...]
                                          [--set 页码:slot_id=文本 ...]
   不记 slot_id 时只给 页码+新标题 即可（自动命中该页 title_slot）。
+  出稿自动过静态排版门禁（文字出界/占位符残留=error 拒绝交付 rc=4，
+  --allow-layout-errors 显式豁免）；交付前建议再跑 visual_gate.py 渲染视觉门。
 """
 import sys, os, json, re, shutil, subprocess
 from pathlib import Path
@@ -100,6 +102,12 @@ def cmd_show(pg):
     if ts:
         print(f"标题槽: {ts['slot_id']}  现:「{ts['current_text'][:36]}」  容量≈{ts['max_chars']}字")
     ed = [x for x in p["text_slots"] if x.get("editable")][:14]
+    tiny = [x for x in p["text_slots"] if x.get("editable")
+            and not cap12(x) and x["slot_id"] != p.get("title_slot_id")]
+    if tiny:
+        print(f"⚠ 本页含 {len(tiny)} 处天然小字槽（模板原文即小于 12pt 的轴标签/"
+              "图例类，12pt 重排会拒绝）：出稿需 --allow-small-font 豁免，"
+              "或只选其他页")
     print(f"可编辑槽位（前{len(ed)}个 / 共{len(p['text_slots'])}个）:")
     for x in ed:
         c = cap12(x)
@@ -131,7 +139,7 @@ def cmd_build(argv):
         del argv[i:i + 2]
     build_tmp = _confine("deck_build_tmp.pptx")
     sets = []
-    allow_small_font = allow_mixed = False
+    allow_small_font = allow_mixed = allow_layout = False
     theme_id = None
     font_id = "楷体"
     while "--set" in argv:
@@ -142,6 +150,9 @@ def cmd_build(argv):
     if "--allow-mixed-palette" in argv:
         allow_mixed = True
         argv.remove("--allow-mixed-palette")
+    if "--allow-layout-errors" in argv:
+        allow_layout = True
+        argv.remove("--allow-layout-errors")
     if "--theme" in argv:
         i = argv.index("--theme")
         theme_id = argv[i + 1]; del argv[i:i + 2]
@@ -237,7 +248,21 @@ def cmd_build(argv):
     else:
         shutil.move(build_tmp, out)
     print("✓ 已生成:", os.path.abspath(out))
-    # 出稿最后一步：整套配色检查（铁律）。不通过 → 退出码 3，成品需重选/改版。
+    # 出稿门禁 1：静态排版审计（error 一票否决；纯装饰出血已降 warning）。
+    # rc=4 不得交付；--allow-layout-errors 为显式豁免。
+    la = os.path.join(os.path.dirname(BUILD), "layout_audit.py")
+    r = subprocess.run([sys.executable, la, os.path.abspath(out), "--level", "error"],
+                       capture_output=True, text=True, encoding="utf-8")
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
+    if r.returncode == 1:
+        if allow_layout:
+            print("（--allow-layout-errors 豁免：静态排版 error 已知悉，仍交付）")
+        else:
+            print("✗ 静态排版门禁：存在 error（文字出界/占位符残留等），拒绝交付。"
+                  "修文案或用 --allow-layout-errors 显式豁免。")
+            sys.exit(4)
+    # 出稿门禁 2：整套配色检查（铁律）。不通过 → 退出码 3，成品需重选/改版。
     chk = os.path.join(os.path.dirname(BUILD), "palette_check.py")
     r = subprocess.run([sys.executable, chk, os.path.abspath(out)],
                        capture_output=True, text=True, encoding="utf-8")

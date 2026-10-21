@@ -43,7 +43,9 @@ imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备
 （[dsh-office](https://github.com/omdsh-dev/dsh-office) /
 [dsh-univer-office](https://github.com/dream-num/dsh-univer-office)（Apache-2.0）
 + pptx-harness）：7 规范版式坐标、静态审计阈值、字形级 lint 三规则、逐页闭环，
-配 `scripts/layout_audit.py` 成品终检（出画布/占位符=error，重叠/溢出/孤字=warning）；
+配 `scripts/layout_audit.py` 成品终检（文字出界/占位符含 XX=error，装饰出血/
+重叠/溢出/孤字/装饰压字=warning）；`scripts/visual_gate.py` 渲染视觉门
+（渲染后叠字/数字劈行/文字出页=error，压线=warning）；
 排版四门四篇（蒸馏自 pptwise / dsh-ppt / dsh-ppt-maker / dsh-ppt-master /
 PTT-Studio / PPT-Design-Skill / dsh-ppt-canvas / dsh-office-tools 八引擎，均 MIT；
 deepseek-design 仅学习思想）：版式几何数字库（字号阶梯/版式坐标表/间距常数）、
@@ -152,10 +154,12 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 - 可编辑成品一律为原生形状 + 真文本框（主线的背景/骨架/图标层为图片，按
   Super 规范交付；快线与备线为 0 图片对象的全原生）
 - 快线槽位级容量与字号层级已经几何计算，出稿前过 12pt 容量硬校验与配色体系检查
-- 交付前三道门禁：`layout_audit.py`（静态排版：出画布/占位符/重叠/溢出/孤字）
-  → `palette_check.py`（配色体系）→ LibreOffice 渲染目检 8 项
+- 出稿自动两道门禁：`layout_audit.py --level error`（静态排版：文字出界/占位符
+  残留=error 拒绝交付 rc=4，装饰出血降 warning；`--allow-layout-errors` 豁免）
+  → `palette_check.py`（配色体系，rc=3）；交付前再手动 `visual_gate.py`
+  （渲染视觉门：叠字/数字劈行/文字出页=error）+ LibreOffice 目检
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **83 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **88 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权

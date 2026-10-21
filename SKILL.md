@@ -161,13 +161,16 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
 `--theme` 色系，imagegen 色板仅描述用色行为。摆位与间距问题查
 `layout-engine.md` 与 `layout-library.md`；文案量与装饰查
-`overflow-and-density.md`；任何成品交付前跑 `python scripts/layout_audit.py 成品.pptx`
-（出画布/占位符残留=error 一票否决；重叠>10%/估算溢出>105%/末行孤字=warning
-须修或注明），再按 `audit-protocol.md` 过渲染与视觉门。
+`overflow-and-density.md`；deck-all 出稿已**自动**过静态排版门禁
+（`layout_audit.py --level error`：文字出界/占位符残留=error 拒绝交付 rc=4，
+`--allow-layout-errors` 显式豁免；纯装饰出血/重叠/溢出/孤字/装饰压字=warning），
+交付前再手动跑 `python scripts/visual_gate.py 成品.pptx` 渲染视觉门
+（渲染后叠字/数字劈行/文字出页=error，压线=warning——静态全绿≠能看），
+最后按 `audit-protocol.md` 人工抽查。
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（83 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（88 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |

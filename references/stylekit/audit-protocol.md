@@ -19,8 +19,15 @@ dsh-ppt 三态口径，防止 AI 谎报完成：
 
 ## 二、静态几何门（阈值全集，先跑这个）
 
-`layout_audit.py` 已实现：越界（error）、占位符（error）、悬空图片关系（error）、
-重叠 >10%（warning）、估算溢出 >105%（warning）、latin 无 ea（warning）。
+`layout_audit.py` 已实现：越界（error；**纯装饰形状出血 ≤0.5in 降 warning
+bleed-decor**——声明过的溢出是设计）、占位符（error，含 **XX 双字符与中文
+占位**）、悬空图片关系（error）、重叠 >10%（warning）、估算溢出 >105%（warning）、
+**decor-over-text 装饰叠文字上层 >4%（warning）**、**orphan-line 末行孤字
+（warning）**、latin 无 ea（warning）。deck-all 出稿已自动接
+`--level error` 门禁（拒绝交付 rc=4，`--allow-layout-errors` 豁免）。
+`visual_gate.py` 渲染视觉门（LibreOffice→PDF→字形级）：**text-overlap
+渲染叠字 >30%（error）、number-split 数字被劈行（error）、文字出页（error）、
+文字压细线（warning）**。
 引擎界更严的全集（纳入自查与后续脚本升级）：
 
 | 检查 | 阈值 | 级别 |

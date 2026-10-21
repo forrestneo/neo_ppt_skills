@@ -58,6 +58,7 @@ def t_structure():
             "references/stylekit/fidelity-and-review.md",
             "references/stylekit/process-and-benchmark.md",
             "scripts/layout_audit.py",
+            "scripts/visual_gate.py",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
@@ -83,7 +84,8 @@ def t_structure():
     check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收 / "
           "4 篇排版四门各 ≥7 节 / luobo 两篇各 ≥5 节 / 过程纪律 ≥7 节，含出处）", ok_cnt)
 
-    # layout_audit 端到端：好稿放行（rc=0）、越界+重叠坏稿拦截（rc=1）
+    # layout_audit 端到端：好稿放行（rc=0，含出血装饰/孤字/装饰压字 warning）、
+    # 坏稿拦截（越界 error + 重叠 + XX 占位符，rc=1）
     from pptx import Presentation as _Prs
     from pptx.util import Inches as _In
     with tempfile.TemporaryDirectory() as td:
@@ -97,7 +99,7 @@ def t_structure():
                 t2 = s.shapes.add_textbox(_In(1), _In(1), _In(4), _In(2))
                 t2.text_frame.text = "甲盒"
                 t3 = s.shapes.add_textbox(_In(2), _In(1.5), _In(4), _In(2))
-                t3.text_frame.text = "乙盒"
+                t3.text_frame.text = "乙盒汇报人：XX"
             else:
                 tb = s.shapes.add_textbox(_In(1), _In(1), _In(4), _In(2))
                 tb.text_frame.text = "画布内正常文本"
@@ -105,6 +107,19 @@ def t_structure():
                 s2 = prs.slides.add_slide(prs.slide_layouts[6])
                 ob = s2.shapes.add_textbox(_In(1), _In(1), _In(0.95), _In(0.5))
                 ob.text_frame.text = "风险管控要落地"
+                # 纯装饰出血形状（无文字，0.3in）→ bleed-decor warning，rc 仍 0
+                bl = s2.shapes.add_textbox(_In(13.2), _In(3), _In(0.4), _In(1))
+                bl.text_frame.text = ""
+                bl.fill.solid()
+                bl.fill.fore_color.rgb = __import__("pptx.dml.color", fromlist=["RGBColor"]).RGBColor(0xEE, 0xEE, 0xEE)
+                # 装饰条叠在文字上层 → decor-over-text warning
+                s3 = prs.slides.add_slide(prs.slide_layouts[6])
+                tt = s3.shapes.add_textbox(_In(2), _In(2), _In(4), _In(0.6))
+                tt.text_frame.text = "被压的文字行"
+                bar = s3.shapes.add_shape(1, _In(2.5), _In(2.2), _In(5), _In(0.08))
+                bar.text_frame.text = ""
+                bar.fill.solid()
+                bar.fill.fore_color.rgb = __import__("pptx.dml.color", fromlist=["RGBColor"]).RGBColor(0xD3, 0x42, 0x00)
             prs.save(path)
         _mk(os.path.join(td, "good.pptx"), False)
         _mk(os.path.join(td, "bad.pptx"), True)
@@ -113,9 +128,29 @@ def t_structure():
         check("layout_audit 好稿放行 rc=0", r_good.returncode == 0)
         check("layout_audit 孤字检测命中 orphan-line", "orphan-line" in r_good.stdout
               and r_good.returncode == 0)
-        check("layout_audit 坏稿拦截（越界 error + 重叠 warning，rc=1）",
+        check("layout_audit 纯装饰出血降级 bleed-decor（rc 仍 0）",
+              "bleed-decor" in r_good.stdout and r_good.returncode == 0)
+        check("layout_audit 装饰压字命中 decor-over-text",
+              "decor-over-text" in r_good.stdout and r_good.returncode == 0)
+        check("layout_audit 坏稿拦截（越界 error + 重叠 + XX 占位符，rc=1）",
               r_bad.returncode == 1 and "out-of-bounds" in r_bad.stdout
-              and "overlap" in r_bad.stdout)
+              and "overlap" in r_bad.stdout and "placeholder" in r_bad.stdout)
+
+    # visual_gate 渲染视觉门端到端：好稿渲染后无叠字/劈行/出页（rc=0，依赖 LibreOffice）
+    soffice = r"C:\Program Files\LibreOffice\program\soffice.exe"
+    if os.path.isfile(soffice):
+        with tempfile.TemporaryDirectory() as td:
+            from pptx import Presentation as _Prs2
+            from pptx.util import Inches as _In2
+            prs = _Prs2()
+            prs.slide_width, prs.slide_height = _In2(13.333), _In2(7.5)
+            s = prs.slides.add_slide(prs.slide_layouts[6])
+            tb = s.shapes.add_textbox(_In2(1), _In2(1), _In2(6), _In2(1))
+            tb.text_frame.text = "视觉门自检正常文本"
+            prs.save(os.path.join(td, "ok.pptx"))
+            r_vg = run([BUILD.parent / "visual_gate.py", os.path.join(td, "ok.pptx")])
+            check("visual_gate 好稿渲染通过 rc=0", r_vg.returncode == 0,
+                  r_vg.stdout[-200:] + r_vg.stderr[-200:])
 
     gone = ["templates/bank-lite", "use_bank_lite.py",
             "GordenSuperPPTSkill", "GordenImagePPTGen", "GordenImage2PPTX",
@@ -311,11 +346,18 @@ def t_cli():
             check("最终配色检查：同系稿 PASS", r24.returncode == 0
                   and "通过" in (r24.stdout + r24.stderr))
 
-        # 第 37 页无 <12pt 槽位，默认铁律下直接可出稿
+        # 第 37 页无 <12pt 槽位，默认铁律下直接可出稿；但模板自带"汇报人：XX"
+        # 占位符 → 静态排版门禁拒绝（rc=4），替换后放行
         r15 = run([CLI, "build", "-o", str(Path(td) / "ok.pptx"), "37", "合规页测试"], cwd=td)
         both15 = r15.stdout + r15.stderr
-        check("合规页默认可出稿", r15.returncode == 0 and (Path(td) / "ok.pptx").is_file()
-              and "最小字号铁律" not in both15)
+        check("占位符残留触发静态排版门禁 rc=4", r15.returncode == 4
+              and "静态排版门禁" in both15 and "拒绝交付" in both15, both15[-200:])
+        r15b = run([CLI, "build", "-o", str(Path(td) / "ok.pptx"), "37", "合规页测试",
+                    "--set", "37:p37s55x0=汇报人李明"], cwd=td)
+        both15b = r15b.stdout + r15b.stderr
+        check("替换占位符后门禁放行", r15b.returncode == 0
+              and (Path(td) / "ok.pptx").is_file()
+              and "静态排版门禁" not in both15b, both15b[-200:])
 
 
 # ---------------------------------------------------------------- 3 build_pptx 直调（--detail gz）

@@ -5,10 +5,13 @@
 references/stylekit/layout-engine.md 一致。对任意成品（模式 B 还原稿 /
 模式 D 出稿 / compose 组装稿）做交付前门禁：
 
-  out-of-bounds    形状超出画布 >1px 容差（error）
-  placeholder      残留占位符文本（error）
+  out-of-bounds    形状超出画布 >1px 容差（error；无文字的纯装饰形状出界
+                   ≤0.5in 视为设计出血 → warning bleed-decor）
+  placeholder      残留占位符文本（error；含 XX 双字符与中文占位）
   dangling-rel     图片 rId 无对应关系 / 关系指向空部件（error）
   overlap          文本形状两两包围盒重叠 >较小盒面积 10%（warning）
+  decor-over-text  无文字形状（装饰/线条）叠在文本上方 >文本盒面积 4%
+                   （warning，装饰须在文字下层或让位）
   overflow-est     启发式溢出：CJK 全角 1.0em、其余 0.53em、行高 1.25，
                    估算高 >可用高 105%（warning）
   orphan-line      中文孤字：折行后末行仅 ~1 个全角字宽（warning，修复靠
@@ -34,8 +37,10 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 
-_PLACEHOLDER_PAT = re.compile(r"click to add|lorem|\[insert|\bxxx+\b|\btodo\b", re.I)
+_PLACEHOLDER_PAT = re.compile(
+    r"click to add|lorem|\[insert|\bxx+\b|\btodo\b|待填写|此处输入|占位文本", re.I)
 _EM = 12700  # 1pt = 12700 EMU
+_BLEED_TOL = int(0.5 * 914400)  # 纯装饰形状的出血容忍：0.5in
 
 
 @dataclass
@@ -142,6 +147,16 @@ def _bounds_findings(shape, slide_no, sw, sh_h, out):
         return
     tol = 9525  # 1px
     if l < -tol or t < -tol or l + w > sw + tol or t + h > sh_h + tol:
+        over = max(-l, -t, (l + w) - sw, (t + h) - sh_h, 0)
+        try:
+            has_text = shape.has_text_frame and bool(shape.text_frame.text.strip())
+        except Exception:
+            has_text = False
+        if not has_text and over <= _BLEED_TOL:
+            out.append(Finding(
+                "warning", "bleed-decor", slide_no, shape.shape_id,
+                f"纯装饰形状出血 {over / _EM / 72:.2f}in（声明过的溢出是设计）"))
+            return
         out.append(Finding(
             "error", "out-of-bounds", slide_no, shape.shape_id,
             f"形状超出画布: L{l / _EM / 72:.2f} T{t / _EM / 72:.2f} "
@@ -167,6 +182,42 @@ def _overlap_findings(shapes, slide_no, out):
                 out.append(Finding(
                     "warning", "overlap", slide_no, a[0].shape_id,
                     f"文本形状重叠 {inter / smaller:.0%}（与 shape {b[0].shape_id}）"))
+
+
+def _decor_overlap_findings(top_shapes, slide_no, out):
+    """装饰（无文字形状）叠在文本上层且相交 >文本盒 4% → warning。
+
+    只比较顶层形状（z 序 = spTree 出现顺序，后出现者在上）；组内元素
+    不参与，避免跨层误报。垫底的背景色块 z 序更低，天然不报。
+    """
+    boxes = []
+    for z, sh in enumerate(top_shapes):
+        try:
+            if sh.left is None or sh.width is None:
+                continue
+            has_text = sh.has_text_frame and bool(sh.text_frame.text.strip())
+        except Exception:
+            continue
+        boxes.append((z, sh, has_text))
+    texts = [(z, sh) for z, sh, t in boxes if t]
+    decors = [(z, sh) for z, sh, t in boxes if not t]
+    for tz, tsh in texts:
+        ta = (tsh.width or 0) * (tsh.height or 0)
+        if not ta:
+            continue
+        for dz, dsh in decors:
+            if dz <= tz:  # 装饰在文本下层 = 垫底，合法
+                continue
+            ix = max(0, min(tsh.left + tsh.width, dsh.left + dsh.width)
+                     - max(tsh.left, dsh.left))
+            iy = max(0, min(tsh.top + tsh.height, dsh.top + dsh.height)
+                     - max(tsh.top, dsh.top))
+            if ix * iy / ta > 0.04:
+                out.append(Finding(
+                    "warning", "decor-over-text", slide_no, tsh.shape_id,
+                    f"装饰形状(shape {dsh.shape_id})叠在文字上层，覆盖 "
+                    f"{ix * iy / ta:.0%}（装饰须在文字下层或让位）"))
+                break
 
 
 def _rel_findings(slide, slide_no, out):
@@ -201,6 +252,10 @@ def audit(prs, level: str = "warning") -> list:
             except Exception:
                 pass
         _overlap_findings(shapes, i, findings)
+        try:
+            _decor_overlap_findings(list(slide.shapes), i, findings)
+        except Exception:
+            pass
         _rel_findings(slide, i, findings)
     order = {"error": 0, "warning": 1}
     findings.sort(key=lambda f: (f.slide, order.get(f.severity, 9)))
