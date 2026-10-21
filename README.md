@@ -36,7 +36,7 @@ skeletons, Chinese and English output.
 **硬门禁**：阶段 1 每页必须真实调用 imagegen；阶段 2 的三个图片层同样必须
 imagegen 提取式生成。宿主无 imagegen 时主线停止，改走快线/备线，不得用代码绘图冒充出图。
 
-**风格与叙事选型（stylekit）**：`references/stylekit/` 十一篇蒸馏知识库——
+**风格与叙事选型（stylekit）**：`references/stylekit/` 十二篇蒸馏知识库——
 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）四篇：18 种页面视觉
 风格、20 种 imagegen 渲染手法 + 14 套图像色板（含 EN 提示词片段与适配矩阵）、
 11 种图式构图骨架、5 种叙事模式 + 交付前视觉验收清单；定位排版一篇
@@ -51,7 +51,11 @@ deepseek-design 仅学习思想）：版式几何数字库（字号阶梯/版式
 全集/中文 fit 红线/视觉门/验收合同）、编辑保真（原树编辑十二细则/占位符继承
 保护/最小改动纪律）；风格抽取与保真自评两篇（蒸馏自
 [luobo-ppt](https://github.com/zhouwei713/luobo-ppt)（MIT））：参考图→风格抽取、
-美化管线（原稿文字零改动）、品牌套件、"安静的改动"门禁与五维自评。
+美化管线（原稿文字零改动）、品牌套件、"安静的改动"门禁与五维自评；过程纪律
+一篇（蒸馏自 [codex-slides](https://github.com/nexu-io/codex-slides)（MIT）七分技能
+与 [awesome-codex-ppt-skills](https://github.com/zhuyansen/awesome-codex-ppt-skills)
+横评清单）：双信号验证、known-errors 故障恢复、checkpoint 可见化、版本不可变、
+PEI 可编辑性分级与横评方法论。
 风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立选型，
 一套 PPT 各定一种；颜色纪律仍归主题色系统管。
 
@@ -151,7 +155,7 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
 - 交付前三道门禁：`layout_audit.py`（静态排版：出画布/占位符/重叠/溢出/孤字）
   → `palette_check.py`（配色体系）→ LibreOffice 渲染目检 8 项
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **82 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **83 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权
@@ -178,7 +182,11 @@ audit-protocol / edit-fidelity 四篇蒸馏自 [pptwise](https://github.com/lius
 style-extraction / fidelity-and-review 两篇蒸馏自
 [luobo-ppt](https://github.com/zhouwei713/luobo-ppt)（MIT License,
 Copyright (c) 2026 zhouluobo）——参考图风格抽取、美化管线（原稿文字零改动）、
-品牌套件、"安静的改动"门禁与五维自评；均依其许可证条款注明出处。
+品牌套件、"安静的改动"门禁与五维自评；process-and-benchmark 一篇蒸馏自
+[codex-slides](https://github.com/nexu-io/codex-slides)（MIT）与
+[awesome-codex-ppt-skills](https://github.com/zhuyansen/awesome-codex-ppt-skills)
+——双信号验证、故障恢复、checkpoint 可见化、PEI 可编辑性分级与横评方法论；
+均依其许可证条款注明出处。
 
 ---
 
@@ -200,7 +208,7 @@ authoring, in Chinese or English.
 | **Fast · Template refill** | python-pptx only | You have content; pick pages from the bundled collection, refill slots, done in minutes |
 | **Fallback · Vector re-build** | rapidocr + ppt-master (optional) | You have slide images/screenshots that must become editable |
 
-**Style & narrative kit (stylekit)**: `references/stylekit/` holds eleven
+**Style & narrative kit (stylekit)**: `references/stylekit/` holds twelve
 distilled reference files — four from [ppt-master](https://github.com/hugohe3/ppt-master)
 (MIT): 18 page visual styles, 20 imagegen rendering techniques + 14 image
 palettes (EN prompt fragments and compatibility matrices), 11 diagram
@@ -222,7 +230,12 @@ foreign .pptx files without breaking layout); two on style extraction and
 content fidelity distilled from [luobo-ppt](https://github.com/zhouwei713/luobo-ppt)
 (MIT): reference-image style extraction, beautify pipeline (source text kept
 verbatim), brand kits from VI manuals, the "quiet changes" gate (chart units,
-axis titles, footnotes) and the five-dimension self-review.
+axis titles, footnotes) and the five-dimension self-review; one on process
+discipline distilled from [codex-slides](https://github.com/nexu-io/codex-slides)
+(MIT) and the [awesome-codex-ppt-skills](https://github.com/zhuyansen/awesome-codex-ppt-skills)
+benchmark list: dual-signal verification, known-errors recovery, visible
+checkpoints, immutable versions, the PEI editability ladder and the
+same-brief benchmark method.
 Style (how it is drawn), palette (how color is applied)
 and narrative mode (how it argues) are chosen independently — one per deck;
 color discipline still belongs to the theme system.
