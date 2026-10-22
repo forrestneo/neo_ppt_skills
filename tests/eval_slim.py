@@ -66,6 +66,7 @@ def t_structure():
             "scripts/freelayout.py",
             "scripts/measure_deck.py",
             "scripts/dna_extract.py",
+            "references/stylekit/INDEX.md",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
@@ -512,6 +513,27 @@ def t_freelayout():
               r4.returncode == 0 and out4.is_file()
               and "自动换版式 → bullets" in r4.stdout and "layout_auto" in r4.stdout,
               r4.stdout[-200:])
+
+        # --overlay：577 页模板页 × 自由组件注入（+ zip 去重 + 组件文本落页）
+        ov = json.dumps([{"component": "kpi", "rect": [8.6, 4.6, 4.1, 1.9],
+                          "items": [{"value": "3 条", "label": "经营底线"}]}],
+                        ensure_ascii=False)
+        out5 = Path(td) / "ov.pptx"
+        r5 = run([CLI, "build", "-o", str(out5), "37", "合规经营底线清单",
+                  "--set", "37:p37s55x0=汇报人李明", "--overlay", f"1={ov}"], cwd=td)
+        check("deck_cli --overlay 模板页注入自由组件", r5.returncode == 0
+              and out5.is_file() and "自由组件注入: 1 个" in r5.stdout,
+              r5.stdout[-200:] + r5.stderr[-200:])
+        if out5.is_file():
+            import zipfile as _zf
+            from collections import Counter as _Counter
+            _names = _zf.ZipFile(str(out5)).namelist()
+            check("overlay 后无重复 zip 条目（LibreOffice 可载）",
+                  all(c == 1 for c in _Counter(_names).values()))
+            _p5 = _P3(str(out5))
+            texts = " ".join(sh.text_frame.text for sh in _p5.slides[0].shapes
+                             if sh.has_text_frame)
+            check("overlay 组件内容落模板页", "经营底线" in texts)
 
 
 # ---------------------------------------------------------------- 3.6 工具链（measure_deck / dna_extract / visual_gate --json）

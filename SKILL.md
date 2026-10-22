@@ -135,6 +135,13 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 英文稿同理——容量按视觉宽度自动换算（1 汉字 ≈ 2 英文字符），字体沿用
 模板 latin 槽位。
 
+**模板页自由排版（--overlay）**：`--overlay 成品页序=@规格.json` 或内联 JSON，
+在 577 页任一页的任意矩形（`rect:[x,y,w,h]` 英寸）注入 freelayout 组件
+（cards/bullets/kpi/chart/table）——模板骨架（背景/母版/chrome）完整保留，
+组件与主题色联动；注入自动做遮盖检测（与现有文字重叠 >40% 警告并提示用
+`show 页码` 找空位）、zip 重复条目去重（保 LibreOffice 可载）。先用 `show 页码`
+看槽位与空位，再定 rect。
+
 ## 模式 E：自由排版（freelayout，从零排原生新稿）
 
 蒸馏 luobo-ppt / dsh-ppt-master 的「版式=代码、AI 只填内容槽」架构：
@@ -211,7 +218,7 @@ deck-dna 等）、awesome-codex-ppt-skills 横评清单及 SkillHub 社区技能
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（114 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（118 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |

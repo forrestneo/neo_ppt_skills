@@ -147,6 +147,13 @@ def cmd_build(argv):
     notes = []
     while "--note" in argv:
         i = argv.index("--note"); notes.append(argv[i + 1]); del argv[i:i + 2]
+    overlays = {}                         # 页码 → [组件规格...]（自由排版注入模板页）
+    while "--overlay" in argv:
+        i = argv.index("--overlay"); ov = argv[i + 1]; del argv[i:i + 2]
+        pg, payload = ov.split("=", 1)
+        if payload.startswith("@"):
+            payload = Path(_confine(payload[1:])).read_text(encoding="utf-8")
+        overlays.setdefault(int(pg), []).extend(json.loads(payload))
     if "--allow-small-font" in argv:
         allow_small_font = True
         argv.remove("--allow-small-font")
@@ -265,7 +272,48 @@ def cmd_build(argv):
                 print(f"✓ 备注 p{pg}: {txt[:24]}…{tip}")
             else:
                 print(f"⚠ 备注页码越界: {pg}（共 {len(_prs.slides._sldIdLst)} 页）")
-        _prs.save(out)
+        _save_repacked(_prs, out)
+    # 自由排版组件注入（577 页模板 × freelayout 组件 = 模板页自由排版）：
+    # --overlay 页码='{"component":"cards","rect":[x,y,w,h],"items":[...]}'
+    if overlays:
+        from pptx import Presentation as _P
+        build_dir = os.path.dirname(BUILD)
+        if build_dir not in sys.path:
+            sys.path.insert(0, build_dir)
+        import freelayout as _fl
+        prs = _P(out)
+        dd = _fl.Deck(_fl.Theme(theme_id))     # 组件只用其原语与主题，不取 dd.prs
+        n_inj = 0
+        for pg_str, specs in overlays.items():
+            pg = int(pg_str)
+            slide = prs.slides[pg - 1]
+            # 遮盖检测：组件矩形与页上现有文字形状相交 >40% → 警告可能盖字
+            def _walk(shapes):
+                for sh in shapes:
+                    yield sh
+                    if sh.shape_type == 6:
+                        yield from _walk(sh.shapes)
+            for spec in specs:
+                rx, ry, rw, rh = (spec.get("rect") or [0.7, 1.72, 11.93, 5.1])
+                for sh in _walk(slide.shapes):
+                    try:
+                        if not (sh.has_text_frame and sh.text_frame.text.strip()):
+                            continue
+                        ix = max(0, min(rx + rw, sh.left / 914400 + sh.width / 914400)
+                                 - max(rx, sh.left / 914400))
+                        iy = max(0, min(ry + rh, sh.top / 914400 + sh.height / 914400)
+                                 - max(ry, sh.top / 914400))
+                        if ix * iy / max(0.01, rw * rh) > 0.4:
+                            print(f"⚠ overlay p{pg} {spec.get('component')}: 组件区域与现有"
+                                  f"文字重叠 {ix * iy / (rw * rh):.0%}（可能盖字，"
+                                  f"先用 show {pg} 找空位再定 rect）")
+                            break
+                    except Exception:
+                        continue
+                _fl.render_component(dd, slide, spec)
+                n_inj += 1
+        _save_repacked(prs, out)
+        print(f"✓ 自由组件注入: {n_inj} 个 overlay（主题 {theme_id or 'orange-vitality'}）")
     # FILL-REPORT.md：换字交付报告（改了什么/还剩什么/什么要人工看），与成品同目录
     try:
         _write_fill_report(out, spec)
@@ -293,6 +341,39 @@ def cmd_build(argv):
     sys.stderr.write(r.stderr)
     if r.returncode != 0:
         sys.exit(3)
+
+def _save_repacked(prs, path):
+    """python-pptx 重存 + 重复条目去重：save 到旁路文件（Windows 上源文件
+    读句柄未释放时 os.replace 目标会被拒），再原子替换。"""
+    tmp = path + ".inj.tmp"
+    prs.save(tmp)
+    del prs
+    if _repack_dedupe(tmp):
+        print("（zip 重复条目已去重重打包）")
+    os.replace(tmp, path)
+
+
+def _repack_dedupe(path):
+    """python-pptx 重存会在 prune 过的包里产生重复 zip 条目（LibreOffice 拒载、
+    python-pptx 宽容能开）——重打包去重，后写优先，其余比特级原样。"""
+    import zipfile
+    data, order = {}, []
+    total = 0
+    with zipfile.ZipFile(path) as z:
+        for it in z.infolist():
+            total += 1
+            if it.filename not in data:
+                order.append(it.filename)
+            data[it.filename] = z.read(it.filename)
+    if total == len(data):
+        return False
+    tmp = path + ".repack.tmp"
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zo:
+        for name in order:
+            zo.writestr(name, data[name])
+    os.replace(tmp, path)
+    return True
+
 
 def _write_fill_report(out_path, spec):
     """FILL-REPORT.md：换字交付报告（slide-skill defense-fill 闭环思想）——

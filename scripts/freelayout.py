@@ -536,83 +536,91 @@ def v_section(d: Deck, slide, s):
         d._auto_text(slide, MX + 0.2, 4.72, 9.0, 0.8, s["sub"], 14, color=t.muted)
 
 
-def v_bullets(d: Deck, slide, s):
+def comp_bullets(d: Deck, slide, x, y, w, h, s):
+    """要点组件：可在任意矩形渲染（模板页 overlay 与整页版式共用）。"""
     t = d.theme
-    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
     items = s.get("items", [])
-    has_take = bool(s.get("takeaway"))
-    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.0)
     n = max(1, len(items))
     boost = 2.0 if n <= 4 else (1.0 if n == 5 else 0.0)   # 稀疏页字号补偿
-    row_h = min(1.25, (bottom - y0) / n)
-    y = y0 + max(0.0, (bottom - y0 - row_h * n) / 2)
+    row_h = min(1.25, h / n)
+    yy = y + max(0.0, (h - row_h * n) / 2)
     for i, it in enumerate(items, 1):
         title = it if isinstance(it, str) else it.get("title", "")
         text = "" if isinstance(it, str) else it.get("text", "")
-        d._oval(slide, MX, y + 0.04, 0.4, fill=t.tint)
-        d._text(slide, MX, y + 0.10, 0.4, 0.28, f"{i:02d}", 11, color=t.primary,
+        d._oval(slide, x, yy + 0.04, 0.4, fill=t.tint)
+        d._text(slide, x, yy + 0.10, 0.4, 0.28, f"{i:02d}", 11, color=t.primary,
                 bold=True, align=PP_ALIGN.CENTER)
-        tx = MX + 0.58
+        tx = x + 0.58
         if text:
-            d._auto_text(slide, tx, y, CW - 0.7, 0.34, title, 15 + boost, bold=True,
+            d._auto_text(slide, tx, yy, w - 0.7, 0.34, title, 15 + boost, bold=True,
                          max_lines=1, floor=11)
-            d._auto_text(slide, tx, y + 0.37, CW - 0.7, row_h - 0.42, text,
+            d._auto_text(slide, tx, yy + 0.37, w - 0.7, row_h - 0.42, text,
                          BODY + boost - 1.0, color=t.muted)
         else:
-            d._auto_text(slide, tx, y, CW - 0.7, row_h - 0.06, title, 14 + boost,
+            d._auto_text(slide, tx, yy, w - 0.7, row_h - 0.06, title, 14 + boost,
                          anchor=MSO_ANCHOR.MIDDLE, floor=11)
-        y += row_h
+        yy += row_h
+
+
+def v_bullets(d: Deck, slide, s):
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.0)
+    comp_bullets(d, slide, MX, y0, CW, bottom - y0, s)
     if has_take:
         d.takeaway(slide, s["takeaway"])
 
 
-def v_cards(d: Deck, slide, s):
-    t = d.theme
-    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+def comp_cards(d: Deck, slide, x, y, w, h, s):
+    """卡片网格组件：可在任意矩形渲染。"""
     items = s.get("items", [])
-    has_take = bool(s.get("takeaway"))
-    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.0)
     n = len(items)
     cols = 1 if n == 1 else (2 if n in (2, 4) else 3)
     rows = math.ceil(n / cols)
     gap = 0.24
-    card_h = min((bottom - y0 - gap * (rows - 1)) / rows, rows * 1.9 + 0.3)  # 不留空肚子
+    card_h = min((h - gap * (rows - 1)) / rows, rows * 1.9 + 0.3)  # 不留空肚子
     total_h = rows * card_h + gap * (rows - 1)
-    y_top = y0 + max(0.0, (bottom - y0 - total_h) / 2)   # 内容块整体垂直居中
-    cw = (CW - gap * (cols - 1)) / cols
+    y_top = y + max(0.0, (h - total_h) / 2)               # 内容块整体垂直居中
+    cw = (w - gap * (cols - 1)) / cols
     for i, it in enumerate(items):
         r, c = divmod(i, cols)
         row_items = min(cols, n - r * cols)
         row_w_total = row_items * cw + (row_items - 1) * gap
-        x = MX + (CW - row_w_total) / 2 + c * (cw + gap)
+        xx = x + (w - row_w_total) / 2 + c * (cw + gap)
         yy = y_top + r * (card_h + gap)
-        d.card(slide, x, yy, cw, card_h, it.get("title", ""), it.get("text"),
+        d.card(slide, xx, yy, cw, card_h, it.get("title", ""), it.get("text"),
                num=it.get("num", f"{i+1:02d}"),
                title_pt=14 + (1.0 if n <= 4 else 0.0),
                text_pt=11.5 if n > 3 else 12.0)
+
+
+def v_cards(d: Deck, slide, s):
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.0)
+    comp_cards(d, slide, MX, y0, CW, bottom - y0, s)
     if has_take:
         d.takeaway(slide, s["takeaway"])
 
 
-def v_kpi(d: Deck, slide, s):
+def comp_kpi(d: Deck, slide, x, y, w, h, s):
+    """KPI 瓦片组件：可在任意矩形渲染。返回瓦片底部 y。"""
     t = d.theme
-    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
     items = s.get("items", [])[:4]
     n = max(1, len(items))
     gap = 0.3
-    cw = (CW - gap * (n - 1)) / n
-    ch = min(2.75, CONTENT_BOTTOM - 0.8 - y0)
-    area_bottom = CONTENT_BOTTOM - (0.72 if s.get("takeaway") else 0.15)
-    ky = y0 + max(0.0, (area_bottom - y0 - ch) / 2)
+    cw = (w - gap * (n - 1)) / n
+    ch = min(2.75, h)
+    ky = y + max(0.0, (h - ch) / 2)
     for i, it in enumerate(items):
-        x = MX + i * (cw + gap)
-        d._rect(slide, x, ky, cw, ch, fill=t.surface, round_=True, radius=0.06)
-        d._rect(slide, x + 0.2, ky, min(0.6, cw * 0.3), 0.05, fill=t.primary)
+        x0 = x + i * (cw + gap)
+        d._rect(slide, x0, ky, cw, ch, fill=t.surface, round_=True, radius=0.06)
+        d._rect(slide, x0 + 0.2, ky, min(0.6, cw * 0.3), 0.05, fill=t.primary)
         val = str(it.get("value", ""))
         vpt = 40 if units(val) <= 7 else 30
-        d._auto_text(slide, x + 0.2, ky + 0.3, cw - 0.4, 0.95, val, vpt,
+        d._auto_text(slide, x0 + 0.2, ky + 0.3, cw - 0.4, 0.95, val, vpt,
                      color=t.strong, bold=True, floor=18)
-        d._auto_text(slide, x + 0.2, ky + 1.32, cw - 0.4, 0.35, it.get("label", ""),
+        d._auto_text(slide, x0 + 0.2, ky + 1.32, cw - 0.4, 0.35, it.get("label", ""),
                      12.5, bold=True, max_lines=1, floor=10)
         delta = it.get("delta")
         if delta:
@@ -625,15 +633,21 @@ def v_kpi(d: Deck, slide, s):
                 up = not str(delta).startswith(("-", "−", "降"))
             dc = t.good if up else t.bad
             dw = units(str(delta)) * 0.13 + 0.42
-            d._rect(slide, x + 0.2, ky + 1.78, dw, 0.32, fill=_mix(t.bg, dc, 0.16),
+            d._rect(slide, x0 + 0.2, ky + 1.78, dw, 0.32, fill=_mix(t.bg, dc, 0.16),
                     round_=True, radius=0.5)
-            d._text(slide, x + 0.2, ky + 1.83, dw, 0.24, str(delta), 10.5, color=dc,
+            d._text(slide, x0 + 0.2, ky + 1.83, dw, 0.24, str(delta), 10.5, color=dc,
                     bold=True, align=PP_ALIGN.CENTER)
         if it.get("note"):
-            d._auto_text(slide, x + 0.2, ky + 2.18, cw - 0.4, ch - 2.3,
+            d._auto_text(slide, x0 + 0.2, ky + 2.18, cw - 0.4, ch - 2.3,
                          it["note"], 10.5, color=t.muted)
+    return ky + ch
+
+
+def v_kpi(d: Deck, slide, s):
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    kpi_bottom = comp_kpi(d, slide, MX, y0, CW, CONTENT_BOTTOM - 0.8 - y0, s)
     if s.get("takeaway"):
-        d.takeaway(slide, s["takeaway"], y=ky + ch + 0.22)
+        d.takeaway(slide, s["takeaway"], y=kpi_bottom + 0.22)
 
 
 def v_compare(d: Deck, slide, s):
@@ -821,18 +835,16 @@ def v_funnel(d: Deck, slide, s):
         d.takeaway(slide, s["takeaway"])
 
 
-def v_table(d: Deck, slide, s):
+def comp_table(d: Deck, slide, x, y, w, h, s):
+    """原生表格组件：可在任意矩形渲染。返回表格底部 y。"""
     t = d.theme
-    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
     headers = s.get("headers", [])
     rows = s.get("rows", [])
     nr, nc = len(rows) + (1 if headers else 0), max(1, len(headers) or (len(rows[0]) if rows else 1))
-    has_take = bool(s.get("takeaway"))
-    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
-    rh = min(0.56, (bottom - y0) / max(1, nr))
-    ty0 = y0 + max(0.0, (bottom - y0 - rh * nr) / 2)   # 表格垂直居中
-    gf = slide.shapes.add_table(nr, nc, Emu(int(MX * _IN)), Emu(int(ty0 * _IN)),
-                                Emu(int(CW * _IN)), Emu(int(rh * nr * _IN)))
+    rh = min(0.56, h / max(1, nr))
+    ty0 = y + max(0.0, (h - rh * nr) / 2)              # 表格垂直居中
+    gf = slide.shapes.add_table(nr, nc, Emu(int(x * _IN)), Emu(int(ty0 * _IN)),
+                                Emu(int(w * _IN)), Emu(int(rh * nr * _IN)))
     tbl = gf.table
     try:
         tbl.first_row = bool(headers)
@@ -872,8 +884,17 @@ def v_table(d: Deck, slide, s):
             r.font.color.rgb = ink_c
             r.font.name = "Microsoft YaHei"
     if s.get("note"):
-        d._text(slide, MX, ty0 + rh * nr + 0.08, CW, 0.26, s["note"], 9.5,
+        d._text(slide, x, ty0 + rh * nr + 0.08, w, 0.26, s["note"], 9.5,
                 color=t.muted)
+    return ty0 + rh * nr
+
+
+def v_table(d: Deck, slide, s):
+    t = d.theme
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
+    comp_table(d, slide, MX, y0, CW, bottom - y0, s)
     if has_take:
         d.takeaway(slide, s["takeaway"], y=bottom + 0.05)
 
@@ -985,26 +1006,21 @@ def v_closing(d: Deck, slide, s):
                 align=PP_ALIGN.CENTER)
 
 
-def v_chart(d: Deck, slide, s):
-    """原生可编辑图表 + 右侧 insight 解读卡（dsh-ppt-master 规则）：
-    有解读时图占 63% 宽；多系列非饼才出图例；类目 ≤10、折线 ≤3 系列、饼 ≤5 片。"""
+def comp_chart(d: Deck, slide, x, y, w, h, s):
+    """原生图表组件：可在任意矩形渲染。返回内容底部 y。"""
     t = d.theme
-    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
     cats = s.get("categories", [])
     series = s.get("series", [])
     ctype = s.get("chart_type", "bar")
     insights = s.get("insights", [])[:3]
-    has_take = bool(s.get("takeaway"))
-    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
-    # 容量红线（超出打警告——数据仍画出，PowerPoint 侧自行取舍）
     if len(cats) > 10:
         print(f"⚠ chart: 类目 {len(cats)} > 10（柱子变细，建议归并）")
     if ctype == "pie" and len(cats) > 5:
         print("⚠ chart: 饼图 >5 片，建议取 Top5 + 其他")
     if ctype == "line" and len(series) > 3:
         print(f"⚠ chart: 折线 {len(series)} 系列 > 3，建议拆图")
-    chart_w = CW * 0.63 if insights else CW
-    ch = bottom - y0 - (0.30 if s.get("unit") else 0)
+    chart_w = w * 0.63 if insights else w
+    ch = h - (0.30 if s.get("unit") else 0)
     ct_map = {"bar": XL_CHART_TYPE.COLUMN_CLUSTERED, "hbar": XL_CHART_TYPE.BAR_CLUSTERED,
               "line": XL_CHART_TYPE.LINE_MARKERS, "area": XL_CHART_TYPE.AREA,
               "pie": XL_CHART_TYPE.PIE}
@@ -1014,11 +1030,11 @@ def v_chart(d: Deck, slide, s):
         data.add_series(ser.get("name", ""), ser.get("values", []))
     try:
         gf = slide.shapes.add_chart(ct_map.get(ctype, XL_CHART_TYPE.COLUMN_CLUSTERED),
-                                    Emu(int(MX * _IN)), Emu(int(y0 * _IN)),
+                                    Emu(int(x * _IN)), Emu(int(y * _IN)),
                                     Emu(int(chart_w * _IN)), Emu(int(ch * _IN)), data)
     except Exception as e:
         print(f"✗ chart 生成失败: {e}")
-        return
+        return y + h
     chart = gf.chart
     chart.has_title = False
     chart.font.size = Pt(10)
@@ -1053,16 +1069,25 @@ def v_chart(d: Deck, slide, s):
     except Exception:
         pass
     if s.get("unit"):
-        d._text(slide, MX, y0 + ch + 0.04, chart_w, 0.24, f"单位：{s['unit']}", 9.5,
+        d._text(slide, x, y + ch + 0.04, chart_w, 0.24, f"单位：{s['unit']}", 9.5,
                 color=t.muted)
     if insights:
-        ix = MX + chart_w + 0.35
-        iw = W - MX - ix
-        ih = min(1.35, (bottom - y0 - 0.3) / max(1, len(insights)))
+        ix = x + chart_w + 0.35
+        iw = x + w - ix
+        ih = min(1.35, (h - 0.3) / max(1, len(insights)))
         for i, ins in enumerate(insights):
-            iy = y0 + i * (ih + 0.15)
+            iy = y + i * (ih + 0.15)
             d.card(slide, ix, iy, iw, ih, f"{i+1:02d}", ins, num=None,
                    title_pt=13, text_pt=10.5)
+    return y + h
+
+
+def v_chart(d: Deck, slide, s):
+    """原生可编辑图表 + 右侧 insight 解读卡（dsh-ppt-master 规则）。"""
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
+    comp_chart(d, slide, MX, y0, CW, bottom - y0, s)
     if has_take:
         d.takeaway(slide, s["takeaway"])
 
@@ -1167,6 +1192,27 @@ def v_screenshot(d: Deck, slide, s):
             yy += row_h
     if has_take:
         d.takeaway(slide, s["takeaway"])
+
+
+# 组件注册表：矩形化渲染，模板页 overlay 与整页版式共用同一实现
+COMPONENTS = {"cards": comp_cards, "bullets": comp_bullets, "kpi": comp_kpi,
+              "chart": comp_chart, "table": comp_table}
+
+
+def render_component(d: Deck, slide, spec: dict):
+    """在任意矩形渲染一个自由排版组件（577 页模板页 overlay 的入口）。
+
+    spec: {"component": "cards|bullets|kpi|chart|table",
+           "rect": [x, y, w, h](英寸，可省略默认内容区), ...内容字段(items/series 等)}
+    """
+    comp = spec.get("component")
+    fn = COMPONENTS.get(comp)
+    if fn is None:
+        raise ValueError(f"未知组件 {comp!r}（可用: {', '.join(COMPONENTS)}）")
+    rect = spec.get("rect") or [MX, CONTENT_TOP, CW, CONTENT_BOTTOM - CONTENT_TOP]
+    if len(rect) != 4:
+        raise ValueError("rect 须为 [x, y, w, h]（英寸）")
+    return fn(d, slide, *[float(v) for v in rect], spec)
 
 
 LAYOUTS = {
@@ -1362,6 +1408,7 @@ def main(argv):
     src = None
     out = "freelayout_out.pptx"
     theme_id = None
+    quiet = False
     i = 0
     while i < len(argv):
         if argv[i] == "-o" and i + 1 < len(argv):
@@ -1370,13 +1417,16 @@ def main(argv):
         elif argv[i] == "--theme" and i + 1 < len(argv):
             theme_id = argv[i + 1]
             i += 2
+        elif argv[i] == "--quiet":
+            quiet = True
+            i += 1
         else:
             src = argv[i]
             i += 1
     if not src or not os.path.isfile(src):
         print(f"✗ 用法: python scripts/freelayout.py deck.json -o out.pptx [--theme id]")
         return 2
-    return build(src, out, theme_id=theme_id)
+    return build(src, out, theme_id=theme_id, quiet=quiet)
 
 
 if __name__ == "__main__":

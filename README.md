@@ -309,7 +309,11 @@ python scripts/freelayout.py deck.json -o deck.pptx --theme orange-vitality
 
 Quota overflow auto-switches to the fallback layout with an
 `layout_auto` audit record; stylekit selection starts from
-`references/stylekit/INDEX.md`. Also included: per-slide speaker notes (`notes` field / `deck_cli --note`),
+`references/stylekit/INDEX.md`. **Free layout on all 577 template pages**: `deck_cli build --overlay
+"1=[{\"component\":\"kpi\",\"rect\":[x,y,w,h],...}]"` injects any freelayout
+component (cards/bullets/kpi/chart/table) into any rectangle of any template
+page — template skeleton preserved, theme-linked, with overlap detection and
+zip dedup for LibreOffice compatibility. Also included: per-slide speaker notes (`notes` field / `deck_cli --note`),
 content-level lint (assertion-title check, ghost-deck read-through, banned
 vague words), the layout content-type contract (data-required layouts warn on
 non-data content), `scripts/measure_deck.py` (five-dimension machine evidence),
