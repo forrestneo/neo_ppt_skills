@@ -16,6 +16,8 @@ pptwise（渲染后几何审计）与 PTT-Studio（逐页检查清单）：
   python scripts/visual_gate.py 成品.pptx               # 渲染+全查
   python scripts/visual_gate.py 成品.pptx --keep pdf    # 保留中间 PDF
   python scripts/visual_gate.py 成品.pptx --json r.json # 结构化输出
+  python scripts/visual_gate.py 成品.pptx --sheet       # 附加 4 页 2×2 联络表 PNG
+                                                        # （deck 级一致性交叉审查用）
 退出码: 0 = 无 error（warning 仅报告）；1 = 有 error；2 = 环境/用法错。
 依赖: LibreOffice（soffice）+ pymupdf。
 """
@@ -34,6 +36,17 @@ OVERLAP_RATIO = 0.30
 SPLIT_GAP = 2.0    # 判定"右邻"的最大横向间距（pt）
 LINE_THICK = 3.0   # 细线判定：宽或高 < 3pt
 LINE_MIN_LEN = 20.0
+
+
+def _fix_ladder(px: float) -> str:
+    """先量后改（guizang 修正阶梯）：按超出量分档给修法，并防"修过头"。"""
+    if px <= 40:
+        return "修法阶梯：微调间距/字号即可（≤40px 档）；改后复查留白防修过头"
+    if px <= 90:
+        return "修法阶梯：压块间距（40-90px 档）"
+    if px <= 160:
+        return "修法阶梯：压标题/正文或拆页（90-160px 档）"
+    return "修法阶梯：换版式或删内容（>160px 档）"
 
 
 @dataclass
@@ -95,7 +108,10 @@ def audit_page(page, pno: int, out: list):
     spans = _spans(page)
     for t, x0, y0, x1, y1 in spans:
         if x0 < -TOL or y0 < -TOL or x1 > pw + TOL or y1 > ph + TOL:
-            out.append(Finding("error", "text-out", pno, f"文字出页: {t[:24]!r}"))
+            over_px = max(-x0, -y0, x1 - pw, y1 - ph, 0)
+            out.append(Finding("error", "text-out", pno,
+                               f"文字出页: {t[:24]!r}（超出 {over_px:.0f}px；"
+                               f"{_fix_ladder(over_px)}）"))
     # 渲染级叠字
     for i in range(len(spans)):
         for j in range(i + 1, len(spans)):
@@ -109,7 +125,8 @@ def audit_page(page, pno: int, out: list):
             if smaller and inter / smaller > OVERLAP_RATIO:
                 out.append(Finding(
                     "error", "text-overlap", pno,
-                    f"文字重叠 {inter / smaller:.0%}: {a[0][:14]!r} × {b[0][:14]!r}"))
+                    f"文字重叠 {inter / smaller:.0%}: {a[0][:14]!r} × {b[0][:14]!r}"
+                    f"（重排两盒或换分栏版式；{_fix_ladder(inter / smaller * 100)}）"))
     # 数字被劈行：片段以 ,/，/- 结尾，右邻同线片段以数字开头
     right_of = {}
     for t, x0, y0, x1, y1 in spans:
@@ -151,6 +168,40 @@ def audit_page(page, pno: int, out: list):
                 break
 
 
+def contact_sheets(pdf: Path, out_prefix: Path, per_sheet: int = 4):
+    """联络表：每 per_sheet 页拼一张 2×2 深底 PNG，带页码角标（PPTAgent 式）。"""
+    import pymupdf
+    from PIL import Image, ImageDraw
+    doc = pymupdf.open(str(pdf))
+    try:
+        tiles = []
+        for i, page in enumerate(doc, 1):
+            pm = page.get_pixmap(matrix=pymupdf.Matrix(0.9, 0.9))
+            img = Image.frombytes("RGB", (pm.width, pm.height), pm.samples)
+            dr = ImageDraw.Draw(img)
+            dr.rectangle([img.width - 74, img.height - 34, img.width - 6, img.height - 6],
+                         fill=(20, 20, 20))
+            dr.text((img.width - 66, img.height - 30), f"p{i:02d}", fill=(255, 255, 255))
+            tiles.append(img)
+    finally:
+        doc.close()
+    if not tiles:
+        return []
+    tw, th = tiles[0].size
+    out_files = []
+    for si in range(0, len(tiles), per_sheet):
+        chunk = tiles[si:si + per_sheet]
+        cols, rows = 2, 2
+        sheet = Image.new("RGB", (cols * tw + 24, rows * th + 24), (16, 16, 16))
+        for k, img in enumerate(chunk):
+            sheet.paste(img, (8 + (k % cols) * (tw + 8), 8 + (k // cols) * (th + 8)))
+        n = si // per_sheet + 1
+        fp = Path(f"{out_prefix}-contact-{n:02d}.png")
+        sheet.save(fp)
+        out_files.append(str(fp))
+    return out_files
+
+
 def audit(pdf: Path) -> list:
     import pymupdf
     findings: list[Finding] = []
@@ -176,6 +227,7 @@ def main(argv):
     if "--json" in argv:
         i = argv.index("--json")
         json_out = argv[i + 1]
+    do_sheet = "--sheet" in argv
     try:
         with tempfile.TemporaryDirectory(prefix="vgate_") as td:
             pdf = render_pdf(src, Path(td))
@@ -186,6 +238,12 @@ def main(argv):
             findings = audit(pdf)
             if kept:
                 print(f"（中间 PDF 已保留: {kept}）")
+            if do_sheet:
+                try:
+                    for fp in contact_sheets(pdf, src.with_suffix("")):
+                        print(f"✓ 联络表: {fp}（deck 级一致性交叉审查：翻页节奏/离群页/整体风格）")
+                except Exception as e:
+                    print(f"（联络表跳过: {e}）")
     except RuntimeError as e:
         print(f"✗ {e}")
         return 2

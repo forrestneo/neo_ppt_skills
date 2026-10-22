@@ -161,7 +161,12 @@ python scripts/freelayout.py deck.json -o 成品.pptx [--theme orange-vitality]
   （口播稿 40-260 字口径）
 - 配套工具：`scripts/measure_deck.py`（五维机器证据：统一/层级/细节/传达/节奏+PEI）、
   `scripts/dna_extract.py`（从客户旧稿量 DNA：median 词数硬上限/实际主色/字号档）、
-  visual_gate `--json` 结构化输出
+  visual_gate `--json` 结构化输出与 `--sheet` 联络表（4 页 2×2 带页码，deck 级
+  一致性交叉审查）
+- 超配额自动换版式：主版式条数超配额沿候选链降级（cards/kpi/timeline/process/
+  pyramid→bullets，funnel→table），内容零丢失随迁（kpi 的 value/label/note 自动
+  拼要点），并打 `layout_auto` 审计记录；stylekit 选型先读
+  `references/stylekit/INDEX.md`（紧凑索引，一次只读选中的一篇）
 - 版式选型对齐内容形状：并列要点→bullets，多卡并列→cards，数字→kpi/big_number，
   方案取舍→compare，节点推进→timeline/process，层级→pyramid，转化→funnel，
   他者观点→quote，全篇结论→statement
@@ -206,7 +211,7 @@ deck-dna 等）、awesome-codex-ppt-skills 横评清单及 SkillHub 社区技能
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（111 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（114 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |

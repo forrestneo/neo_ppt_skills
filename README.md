@@ -307,7 +307,9 @@ contrast fallback, and the static layout gate runs automatically at build.
 python scripts/freelayout.py deck.json -o deck.pptx --theme orange-vitality
 ```
 
-Also included: per-slide speaker notes (`notes` field / `deck_cli --note`),
+Quota overflow auto-switches to the fallback layout with an
+`layout_auto` audit record; stylekit selection starts from
+`references/stylekit/INDEX.md`. Also included: per-slide speaker notes (`notes` field / `deck_cli --note`),
 content-level lint (assertion-title check, ghost-deck read-through, banned
 vague words), the layout content-type contract (data-required layouts warn on
 non-data content), `scripts/measure_deck.py` (five-dimension machine evidence),

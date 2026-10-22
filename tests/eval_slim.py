@@ -60,6 +60,7 @@ def t_structure():
             "references/stylekit/style-dimensions.md",
             "references/stylekit/measure-driven.md",
             "references/stylekit/content-enrichment.md",
+            "references/stylekit/INDEX.md",
             "scripts/layout_audit.py",
             "scripts/visual_gate.py",
             "scripts/freelayout.py",
@@ -499,6 +500,19 @@ def t_freelayout():
               "华东大客户续约" in _n and "40-260" in r3.stdout)
         check("freelayout 数据契约警告命中", "数据专用版式" in r3.stdout)
 
+        # 容量表驱动自动换版式（cards 7 条 > 配额 6 → bullets + layout_auto 审计）
+        spec4 = {"meta": {"theme": "orange-vitality"},
+                 "slides": [{"type": "cards", "title": "自动换版式验证",
+                             "items": [{"title": f"t{i}", "text": "x"} for i in range(1, 8)]}]}
+        deck4 = Path(td) / "deck4.json"
+        deck4.write_text(json.dumps(spec4, ensure_ascii=False), encoding="utf-8")
+        out4 = Path(td) / "fl4.pptx"
+        r4 = run([FL, str(deck4), "-o", str(out4)], cwd=td)
+        check("freelayout 超配额自动换版式+layout_auto 审计",
+              r4.returncode == 0 and out4.is_file()
+              and "自动换版式 → bullets" in r4.stdout and "layout_auto" in r4.stdout,
+              r4.stdout[-200:])
+
 
 # ---------------------------------------------------------------- 3.6 工具链（measure_deck / dna_extract / visual_gate --json）
 def t_tooling():
@@ -537,6 +551,11 @@ def t_tooling():
                 ok_vg = "findings" in v and "error_count" in v
             check("visual_gate --json 结构化输出", rv.returncode == 0 and ok_vg,
                   rv.stdout[-150:] + rv.stderr[-150:])
+            sheets = [f for f in os.listdir(td) if "contact" in f]
+            rs = run([BUILD.parent / "visual_gate.py", os.path.join(td, "m.pptx"), "--sheet"])
+            sheets2 = [f for f in os.listdir(td) if "contact" in f]
+            check("visual_gate --sheet 联络表产出", rs.returncode == 0
+                  and len(sheets2) > len(sheets), rs.stdout[-150:])
 
 
 def t_render():

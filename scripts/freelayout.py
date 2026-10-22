@@ -1187,6 +1187,36 @@ QUOTA = {"bullets": 8, "cards": 6, "kpi": 4, "timeline": 6, "process": 5,
 _DATA_CONTRACT = {"kpi": "kpi/items", "big_number": "number", "funnel": "items[].value",
                   "table": "rows", "chart": "series/categories"}
 
+# 容量候选链：主版式超配额时的自动降级（零静默丢失——全部内容随迁，只换容器）
+LAYOUT_FALLBACK = {"cards": "bullets", "kpi": "bullets", "timeline": "bullets",
+                   "process": "bullets", "pyramid": "bullets", "funnel": "table",
+                   "toc": "bullets"}
+
+
+def _adapt_for(new_type: str, s: dict) -> dict:
+    """版式降级时的内容搬运：字段形状适配，不丢任何信息。"""
+    s = dict(s)
+    items = s.get("items", s.get("steps", []))
+    if new_type == "bullets":
+        norm = []
+        for it in items:
+            if isinstance(it, str):
+                norm.append(it)
+            else:
+                head = " · ".join(str(v) for v in (
+                    it.get("date"), it.get("value"), it.get("label") or it.get("title", "")
+                ) if v)
+                norm.append({"title": head or it.get("title", ""),
+                             "text": it.get("text") or it.get("note", "")})
+        s["items"] = norm
+        s.pop("steps", None)
+    elif new_type == "table":
+        s["headers"] = s.get("headers", ["阶段", "数值", "说明"])
+        s["rows"] = [[it.get("label", ""), it.get("value", ""), it.get("text", "")]
+                     for it in items]
+        s.pop("items", None)
+    return s
+
 
 # ---------------------------------------------------------------- 内容级 lint
 # （蒸馏 luobo outline_check / dsh-ppt-master lintDeck：写大纲时就把平庸拦住）
@@ -1258,10 +1288,29 @@ def build(deck_path, out_path, theme_id=None, footer_text=None, quiet=False):
         quota = QUOTA.get(typ)
         if quota is None and fn is v_bullets:
             quota = QUOTA["bullets"]          # 未知版式按 bullets 降级后同配额
-        if quota:
+        # 容量表驱动自动换版式（luobo capacity 思想）：主版式超配额 → 沿候选链
+        # 换装得下的版式，写 layout_auto 审计记录（想要 X 换成 Y 因为超容量）。
+        layout_auto = None
+        hops = 0
+        while quota and hops < 3:
             key = "items" if "items" in s else ("steps" if "steps" in s else None)
-            if key and len(s[key]) > quota:
-                warns.append(f"第{d.n+1}页 {typ}: {len(s[key])} 条 > 配额 {quota}（建议拆页）")
+            if not (key and len(s[key]) > quota):
+                break
+            fb = LAYOUT_FALLBACK.get(typ)
+            if not fb or not LAYOUTS.get(fb):
+                warns.append(f"第{d.n+1}页 {typ}: {len(s[key])} 条 > 配额 {quota}（无候选版式，建议拆页）")
+                break
+            warns.append(f"第{d.n+1}页 {typ}: {len(s[key])} 条 > 配额 {quota}，"
+                         f"自动换版式 → {fb}（想要 {typ} 请精简条目）")
+            s = _adapt_for(fb, s)
+            layout_auto = {"wanted": typ, "switched_to": fb,
+                           "reason": f"{len(s.get('items', s.get('steps', [])))} 条超配额" if not layout_auto else layout_auto.get("reason")}
+            typ, fn = fb, LAYOUTS[fb]
+            quota = QUOTA.get(typ)
+            hops += 1
+        if layout_auto:
+            warns.append(f"第{d.n+1}页 layout_auto: wanted={layout_auto['wanted']} "
+                         f"→ {layout_auto['switched_to']}（{layout_auto['reason']}）")
         if typ in _DATA_CONTRACT:
             blob = json.dumps(s, ensure_ascii=False)
             if not any(ch.isdigit() for ch in blob):
