@@ -22,11 +22,14 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import sys
 from pathlib import Path
 
 from pptx import Presentation
+from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
@@ -302,6 +305,37 @@ class Deck:
             shp.line.width = Pt(1)
         shp.shadow.inherit = False
         return shp
+
+    def _picture_cover(self, slide, path, x, y, w, h):
+        """图片按 cover 语义裁切填盒（绝不拉伸变形）。返回 None=文件缺失。"""
+        if not path or not os.path.isfile(path):
+            return None
+        from PIL import Image
+        try:
+            iw, ih = Image.open(path).size
+        except Exception:
+            return None
+        box_ar, img_ar = w / h, iw / ih
+        pic = slide.shapes.add_picture(path, Emu(int(x * _IN)), Emu(int(y * _IN)),
+                                       Emu(int(w * _IN)), Emu(int(h * _IN)))
+        if img_ar > box_ar:                       # 图偏宽 → 裁左右
+            keep = box_ar / img_ar
+            c = (1 - keep) / 2
+            pic.crop_left = pic.crop_right = c
+        elif img_ar < box_ar:                     # 图偏高 → 裁上下
+            keep = img_ar / box_ar
+            c = (1 - keep) / 2
+            pic.crop_top = pic.crop_bottom = c
+        return pic
+
+    def _pin(self, slide, cx, cy, n, d=0.34):
+        """截图上的编号定位 pin：白环 + 主色芯 + 白字（luobo shot_notes 式）。"""
+        t = self.theme
+        self._oval(slide, cx - d / 2, cy - d / 2, d, fill=t.bg)
+        dd = d * 0.72
+        self._oval(slide, cx - dd / 2, cy - dd / 2, dd, fill=t.primary)
+        self._text(slide, cx - d / 2, cy - 0.09, d, 0.2, str(n), 9.5,
+                   color=t.on_primary, bold=True, align=PP_ALIGN.CENTER)
 
     def _text(self, slide, x, y, w, h, text, pt, color=None, bold=False,
               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP, lh=1.3, font=None,
@@ -951,12 +985,197 @@ def v_closing(d: Deck, slide, s):
                 align=PP_ALIGN.CENTER)
 
 
+def v_chart(d: Deck, slide, s):
+    """原生可编辑图表 + 右侧 insight 解读卡（dsh-ppt-master 规则）：
+    有解读时图占 63% 宽；多系列非饼才出图例；类目 ≤10、折线 ≤3 系列、饼 ≤5 片。"""
+    t = d.theme
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    cats = s.get("categories", [])
+    series = s.get("series", [])
+    ctype = s.get("chart_type", "bar")
+    insights = s.get("insights", [])[:3]
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
+    # 容量红线（超出打警告——数据仍画出，PowerPoint 侧自行取舍）
+    if len(cats) > 10:
+        print(f"⚠ chart: 类目 {len(cats)} > 10（柱子变细，建议归并）")
+    if ctype == "pie" and len(cats) > 5:
+        print("⚠ chart: 饼图 >5 片，建议取 Top5 + 其他")
+    if ctype == "line" and len(series) > 3:
+        print(f"⚠ chart: 折线 {len(series)} 系列 > 3，建议拆图")
+    chart_w = CW * 0.63 if insights else CW
+    ch = bottom - y0 - (0.30 if s.get("unit") else 0)
+    ct_map = {"bar": XL_CHART_TYPE.COLUMN_CLUSTERED, "hbar": XL_CHART_TYPE.BAR_CLUSTERED,
+              "line": XL_CHART_TYPE.LINE_MARKERS, "area": XL_CHART_TYPE.AREA,
+              "pie": XL_CHART_TYPE.PIE}
+    data = CategoryChartData()
+    data.categories = cats
+    for ser in series:
+        data.add_series(ser.get("name", ""), ser.get("values", []))
+    try:
+        gf = slide.shapes.add_chart(ct_map.get(ctype, XL_CHART_TYPE.COLUMN_CLUSTERED),
+                                    Emu(int(MX * _IN)), Emu(int(y0 * _IN)),
+                                    Emu(int(chart_w * _IN)), Emu(int(ch * _IN)), data)
+    except Exception as e:
+        print(f"✗ chart 生成失败: {e}")
+        return
+    chart = gf.chart
+    chart.has_title = False
+    chart.font.size = Pt(10)
+    chart.font.color.rgb = t.text
+    plot = chart.plots[0]
+    ramp = t.ramp(max(2, len(series))) if len(series) > 1 else t.ramp(len(cats))
+    try:
+        if ctype == "pie":
+            chart.has_legend = False
+            plot.has_data_labels = True
+            dl = plot.data_labels
+            dl.show_percentage = True
+            dl.show_value = False
+            dl.font.size = Pt(10)
+            for i, pt_ in enumerate(plot.series[0].points):
+                pt_.format.fill.solid()
+                pt_.format.fill.fore_color.rgb = ramp[i % len(ramp)]
+        else:
+            multi = len(series) > 1
+            chart.has_legend = multi
+            if multi:
+                chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+                chart.legend.include_in_layout = False
+            for i, ser in enumerate(plot.series):
+                ser.format.fill.solid()
+                ser.format.fill.fore_color.rgb = ramp[i % len(ramp)]
+            va = chart.value_axis
+            va.has_major_gridlines = True
+            va.major_gridlines.format.line.color.rgb = _mix(t.bg, t.muted, 0.25)
+            va.tick_labels.font.size = Pt(9)
+            chart.category_axis.tick_labels.font.size = Pt(10)
+    except Exception:
+        pass
+    if s.get("unit"):
+        d._text(slide, MX, y0 + ch + 0.04, chart_w, 0.24, f"单位：{s['unit']}", 9.5,
+                color=t.muted)
+    if insights:
+        ix = MX + chart_w + 0.35
+        iw = W - MX - ix
+        ih = min(1.35, (bottom - y0 - 0.3) / max(1, len(insights)))
+        for i, ins in enumerate(insights):
+            iy = y0 + i * (ih + 0.15)
+            d.card(slide, ix, iy, iw, ih, f"{i+1:02d}", ins, num=None,
+                   title_pt=13, text_pt=10.5)
+    if has_take:
+        d.takeaway(slide, s["takeaway"])
+
+
+def v_image(d: Deck, slide, s):
+    """图片 + 对侧要点（图占 52%，cover 裁切绝不拉伸；缺图出占位框并警告）。"""
+    t = d.theme
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
+    side = s.get("image_side", "left")
+    img_w = CW * 0.52
+    img_h = min(bottom - y0, 4.4)
+    ix = MX if side == "left" else MX + CW - img_w
+    tx = MX + img_w + 0.4 if side == "left" else MX
+    tw = CW - img_w - 0.4
+    img = d._picture_cover(slide, s.get("image"), ix, y0, img_w, img_h)
+    if img is None:
+        d._rect(slide, ix, y0, img_w, img_h, fill=t.surface, round_=True, radius=0.04)
+        d._text(slide, ix, y0 + img_h / 2 - 0.15, img_w, 0.3, "图片待补", 12,
+                color=t.muted, align=PP_ALIGN.CENTER)
+        print(f"⚠ image: 找不到图片文件 {s.get('image')!r}（已画占位框）")
+    if s.get("caption"):
+        d._text(slide, ix, y0 + img_h + 0.08, img_w, 0.26, s["caption"], 9.5,
+                color=t.muted)
+    items = s.get("items", [])
+    n = max(1, len(items))
+    row_h = min(1.0, (bottom - y0) / n)
+    yy = y0 + max(0.0, (bottom - y0 - row_h * n) / 2)
+    for i, it in enumerate(items, 1):
+        title = it if isinstance(it, str) else it.get("title", "")
+        text = "" if isinstance(it, str) else it.get("text", "")
+        d._oval(slide, tx, yy + 0.03, 0.34, fill=t.tint)
+        d._text(slide, tx, yy + 0.085, 0.34, 0.24, f"{i:02d}", 10.5, color=t.primary,
+                bold=True, align=PP_ALIGN.CENTER)
+        if text:
+            d._auto_text(slide, tx + 0.5, yy, tw - 0.5, 0.32, title, 14.5, bold=True,
+                         max_lines=1, floor=10.5)
+            d._auto_text(slide, tx + 0.5, yy + 0.34, tw - 0.5, row_h - 0.38, text,
+                         11, color=t.muted)
+        else:
+            d._auto_text(slide, tx + 0.5, yy, tw - 0.5, row_h - 0.06, title, 13.5,
+                         anchor=MSO_ANCHOR.MIDDLE, floor=10.5)
+        yy += row_h
+    if has_take:
+        d.takeaway(slide, s["takeaway"])
+
+
+def v_screenshot(d: Deck, slide, s):
+    """截图窗口外框 + 编号步骤 + 图上 pin（luobo shot_notes 规则）：
+    横截图占 62% 宽、窗口三圆点标题栏、右侧步骤 ≤5 条、pin 白环主色芯。"""
+    t = d.theme
+    y0 = d.header(slide, s["title"], kicker=s.get("kicker"), sub=s.get("sub"))
+    has_take = bool(s.get("takeaway"))
+    bottom = CONTENT_BOTTOM - (0.72 if has_take else 0.15)
+    imgs = s.get("images", [])
+    steps = s.get("steps", [])[:5]
+    frame_w = CW * (0.62 if steps else 1.0)
+    if len(imgs) > 3:
+        print(f"⚠ screenshot: {len(imgs)} 张 > 3（多图建议走流程页）")
+    fh = bottom - y0
+    bar = 0.26
+    fx = MX
+    d._rect(slide, fx, y0, frame_w, fh, fill=t.surface, round_=True, radius=0.03)
+    d._rect(slide, fx, y0, frame_w, bar, fill=_mix(t.bg, t.muted, 0.30))
+    for k in range(3):
+        d._oval(slide, fx + 0.14 + k * 0.17, y0 + bar / 2 - 0.05, 0.1,
+                fill=_mix(t.bg, t.primary, 0.35))
+    inner_y = y0 + bar + 0.08
+    inner_h = fh - bar - 0.16
+    n = max(1, len(imgs))
+    gap = 0.12
+    iw = (frame_w - 0.24 - gap * (n - 1)) / n
+    for i, ip in enumerate(imgs):
+        ix = fx + 0.12 + i * (iw + gap)
+        pic = d._picture_cover(slide, ip, ix, inner_y, iw, inner_h)
+        if pic is None:
+            d._rect(slide, ix, inner_y, iw, inner_h, fill=_mix(t.bg, t.muted, 0.18))
+            print(f"⚠ screenshot: 找不到图片 {ip!r}")
+    for pin in s.get("pins", [])[:8]:
+        at = pin.get("at", [0.5, 0.5])
+        px = fx + 0.12 + (frame_w - 0.24) * min(1.0, max(0.0, at[0]))
+        py = inner_y + inner_h * min(1.0, max(0.0, at[1]))
+        d._pin(slide, px, py, pin.get("n", 1))
+    if steps:
+        sx = fx + frame_w + 0.3
+        sw = W - MX - sx
+        row_h = min(0.9, (bottom - y0) / max(1, len(steps)))
+        yy = y0 + max(0.0, (bottom - y0 - row_h * len(steps)) / 2)
+        for i, st in enumerate(steps, 1):
+            title = st if isinstance(st, str) else st.get("title", "")
+            text = "" if isinstance(st, str) else st.get("text", "")
+            d._pin(slide, sx + 0.17, yy + 0.17, i)
+            if text:
+                d._auto_text(slide, sx + 0.5, yy, sw - 0.5, 0.3, title, 13, bold=True,
+                             max_lines=1, floor=10)
+                d._auto_text(slide, sx + 0.5, yy + 0.32, sw - 0.5, row_h - 0.36, text,
+                             10.5, color=t.muted)
+            else:
+                d._auto_text(slide, sx + 0.5, yy, sw - 0.5, row_h - 0.06, title, 12.5,
+                             anchor=MSO_ANCHOR.MIDDLE, floor=10)
+            yy += row_h
+    if has_take:
+        d.takeaway(slide, s["takeaway"])
+
+
 LAYOUTS = {
     "cover": v_cover, "toc": v_toc, "section": v_section, "bullets": v_bullets,
     "cards": v_cards, "kpi": v_kpi, "compare": v_compare, "timeline": v_timeline,
     "process": v_process, "pyramid": v_pyramid, "funnel": v_funnel,
     "table": v_table, "quote": v_quote, "statement": v_statement,
     "big_number": v_big_number, "closing": v_closing,
+    "chart": v_chart, "image": v_image, "screenshot": v_screenshot,
 }
 
 # 容量配额（条数上限，超出打警告——layout-library.md 配额表）
@@ -966,7 +1185,53 @@ QUOTA = {"bullets": 8, "cards": 6, "kpi": 4, "timeline": 6, "process": 5,
 # 版式内容契约（蒸馏 guizang swiss-layout-lock）：数据专用版式收到无数据内容
 # 时警告——"给概念列表编百分比会被识破"，宁换通用版式也不编数。
 _DATA_CONTRACT = {"kpi": "kpi/items", "big_number": "number", "funnel": "items[].value",
-                  "table": "rows"}
+                  "table": "rows", "chart": "series/categories"}
+
+
+# ---------------------------------------------------------------- 内容级 lint
+# （蒸馏 luobo outline_check / dsh-ppt-master lintDeck：写大纲时就把平庸拦住）
+_TOPIC_SUFFIX = ("介绍", "概述", "总结", "背景", "注意事项", "优势", "方法", "原理",
+                 "现状", "分析", "要点", "内容", "问题", "结论", "汇报", "说明",
+                 "情况", "工作", "方案", "措施")
+_VAGUE_WORDS = ("赋能", "抓手", "闭环", "生态", "打法", "组合拳", "颗粒度")
+_THANKS_PAT = None  # 惰性编译
+
+
+def lint_title(title: str):
+    """结论式标题检查，返回问题描述或 None（luobo looks_like_topic 量化版）。"""
+    global _THANKS_PAT
+    title = (title or "").strip()
+    if not title:
+        return "空标题"
+    for suf in _TOPIC_SUFFIX:
+        if title.endswith(suf) and len(title) <= len(suf) + 6:
+            return f"话题名而非结论（以「{suf}」结尾，写发现不写主题）"
+    if re.match(r"^(什么是|如何|怎么)", title) and len(title) <= 8 \
+            and not any(p in title for p in "，。！？"):
+        return "疑问式短标题，建议改写为可判断的结论句"
+    for w in _VAGUE_WORDS:
+        if w in title:
+            return f"空洞词「{w}」"
+    if _THANKS_PAT is None:
+        _THANKS_PAT = __import__("re").compile(r"^谢谢(观看|收听|聆听|大家)?$|^thanks$|^q&a$", re.I)
+    if _THANKS_PAT.match(title):
+        return "结尾页放结论或行动号召，不放「谢谢观看」"
+    return None
+
+
+def content_lint(slides):
+    """对 deck.json 的 slides 做内容级 lint，返回警告列表（含幽灵稿）。"""
+    warns = []
+    for i, s in enumerate(slides, 1):
+        title = s.get("title") or s.get("headline") or ""
+        issue = lint_title(title)
+        if issue:
+            tag = "建议改写" if not _THANKS_PAT or not _THANKS_PAT.match(title.strip()) else "结尾页建议"
+            warns.append(f"第{i}页 [{s.get('type')}] 标题「{title[:20]}」: {issue}（{tag}）")
+    ghosts = [((s.get("title") or s.get("headline") or "").strip() or f"（无题 {s.get('type')}）")
+              for s in slides]
+    warns.append("幽灵稿自检——只读以下标题应能讲通整个故事：" + " → ".join(ghosts))
+    return warns
 
 
 # ---------------------------------------------------------------- 组装
@@ -979,7 +1244,12 @@ def build(deck_path, out_path, theme_id=None, footer_text=None, quiet=False):
     d = Deck(theme, footer=footer)
     d.total = len(spec.get("slides", []))
     warns = []
-    for s in spec.get("slides", []):
+    slides = spec.get("slides", [])
+    # 内容级 lint（写大纲时拦平庸：话题式标题/空洞词/疑问短句/谢谢观看 + 幽灵稿）
+    if not quiet:
+        for lw in content_lint(slides):
+            warns.append(lw)
+    for s in slides:
         typ = s.get("type", "bullets")
         fn = LAYOUTS.get(typ)
         if fn is None:
@@ -1007,6 +1277,15 @@ def build(deck_path, out_path, theme_id=None, footer_text=None, quiet=False):
         fn(d, slide, s)
         if typ not in ("cover",):
             d.footer(slide)
+        notes = s.get("notes")
+        if notes:
+            try:
+                slide.notes_slide.notes_text_frame.text = str(notes)
+            except Exception:
+                pass
+            nl = len(str(notes))
+            if meta.get("scenario") == "oral" and not (40 <= nl <= 260):
+                warns.append(f"第{d.n}页 口播备注 {nl} 字（建议 40-260 字 ≈ 15-60 秒）")
     d.prs.save(out_path)
     for w in warns:
         print("⚠", w)

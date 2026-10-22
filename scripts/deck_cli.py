@@ -144,6 +144,9 @@ def cmd_build(argv):
     font_id = "楷体"
     while "--set" in argv:
         i = argv.index("--set"); sets.append(argv[i + 1]); del argv[i:i + 2]
+    notes = []
+    while "--note" in argv:
+        i = argv.index("--note"); notes.append(argv[i + 1]); del argv[i:i + 2]
     if "--allow-small-font" in argv:
         allow_small_font = True
         argv.remove("--allow-small-font")
@@ -248,6 +251,26 @@ def cmd_build(argv):
     else:
         shutil.move(build_tmp, out)
     print("✓ 已生成:", os.path.abspath(out))
+    # 演讲者备注：--note 页码=文本 → 写入原生备注（off-canvas，演示者模式可见）
+    if notes:
+        from pptx import Presentation as _P
+        _prs = _P(out)
+        for ns in notes:
+            pg, txt = ns.split("=", 1)
+            pg = int(pg)
+            if 1 <= pg <= len(_prs.slides._sldIdLst):
+                _prs.slides[pg - 1].notes_slide.notes_text_frame.text = txt
+                nl = len(txt)
+                tip = "" if 40 <= nl <= 260 else f"（{nl} 字，口播建议 40-260 字 ≈ 15-60 秒）"
+                print(f"✓ 备注 p{pg}: {txt[:24]}…{tip}")
+            else:
+                print(f"⚠ 备注页码越界: {pg}（共 {len(_prs.slides._sldIdLst)} 页）")
+        _prs.save(out)
+    # FILL-REPORT.md：换字交付报告（改了什么/还剩什么/什么要人工看），与成品同目录
+    try:
+        _write_fill_report(out, spec)
+    except Exception as e:
+        print(f"（FILL-REPORT 跳过: {e}）")
     # 出稿门禁 1：静态排版审计（error 一票否决；纯装饰出血已降 warning）。
     # rc=4 不得交付；--allow-layout-errors 为显式豁免。
     la = os.path.join(os.path.dirname(BUILD), "layout_audit.py")
@@ -270,6 +293,66 @@ def cmd_build(argv):
     sys.stderr.write(r.stderr)
     if r.returncode != 0:
         sys.exit(3)
+
+def _write_fill_report(out_path, spec):
+    """FILL-REPORT.md：换字交付报告（slide-skill defense-fill 闭环思想）——
+    改了哪些槽、还有多少未动的可编辑槽、占位符残留扫描，供迭代到 clean。"""
+    import datetime
+    import re as _re
+    from pptx import Presentation as _P
+    pat = _re.compile(r"click to add|lorem|\[insert|\bxx+\b|\btodo\b|待填写|此处输入|占位文本", _re.I)
+    prs = _P(out_path)
+    detail = load()
+    bypage = {}
+    for e in spec.get("edits", []):
+        bypage.setdefault(e["slide"], []).append(e)
+    lines = ["# FILL-REPORT — 换字交付报告",
+             f"- 生成时间：{datetime.datetime.now():%Y-%m-%d %H:%M}",
+             f"- 交付文件：`{os.path.basename(out_path)}`（{len(prs.slides._sldIdLst)} 页）",
+             "",
+             "## 已替换槽位", "",
+             "| 页 | 槽位 | 新文本 |", "|---|---|---|"]
+    for e in spec.get("edits", []):
+        lines.append(f"| {e['slide']} | {e['slot_id'] or 'title'} | {e['new_text'][:28]} |")
+    if not spec.get("edits"):
+        lines.append("|（无）| | |")
+    # 未动的可编辑槽（按 detail.json 估）与占位符残留
+    lines += ["", "## 占位符残留扫描", ""]
+    residues = []
+
+    def _walk(shapes):
+        for sh in shapes:
+            yield sh
+            if sh.shape_type == 6:
+                yield from _walk(sh.shapes)
+    for i, sl in enumerate(prs.slides, 1):
+        for sh in _walk(sl.shapes):
+            try:
+                if sh.has_text_frame:
+                    m = pat.search(sh.text_frame.text)
+                    if m:
+                        residues.append((i, m.group(), sh.text_frame.text.strip()[:30]))
+            except Exception:
+                pass
+    if residues:
+        lines += ["| 页 | 命中 | 上下文 |", "|---|---|---|"]
+        for pg, hit, ctx in residues:
+            lines.append(f"| {pg} | {hit} | {ctx} |")
+        lines.append("")
+        lines.append("→ 存在残留，建议逐条替换或 `--allow-layout-errors` 前先处理。")
+    else:
+        lines.append("无占位符残留。")
+    n_untouched = sum(1 for sl in spec.get("selected_slides", [])
+                      for x in detail["pages"][sl - 1]["text_slots"] if x.get("editable")) \
+        - len(spec.get("edits", []))
+    lines += ["", f"## 覆盖率", "",
+              f"- 选中页可编辑槽位共 {sum(1 for sl in spec.get('selected_slides', []) for x in detail['pages'][sl - 1]['text_slots'] if x.get('editable'))} 处，本次替换 {len(spec.get('edits', []))} 处，未动 {max(0, n_untouched)} 处（原样保留模板文案，属正常）。",
+              "",
+              "> 迭代口径：占位符残留清零 → 交付。"]
+    rpt = os.path.join(os.path.dirname(out_path), "FILL-REPORT.md")
+    Path(rpt).write_text("\n".join(lines), encoding="utf-8")
+    print(f"✓ 交付报告: {rpt}")
+
 
 def main(argv):
     if not argv:

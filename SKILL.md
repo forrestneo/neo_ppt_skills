@@ -138,8 +138,8 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 ## 模式 E：自由排版（freelayout，从零排原生新稿）
 
 蒸馏 luobo-ppt / dsh-ppt-master 的「版式=代码、AI 只填内容槽」架构：
-**16 种版式函数**（cover/toc/section/bullets/cards/kpi/compare/timeline/process/
-pyramid/funnel/table/quote/statement/big_number/closing），AI 永不写坐标——
+**19 种版式函数**（cover/toc/section/bullets/cards/kpi/compare/timeline/process/
+pyramid/funnel/table/quote/statement/big_number/closing/**chart/image/screenshot**），AI 永不写坐标——
 只写 deck.json（每页 type + 内容字段），几何、字号、间距全部由引擎决定。
 组件灵活：卡片 1-6 张自动网格、KPI 涨跌徽章（`delta_color: good/bad` 覆盖语义色）、
 双栏对比推荐侧、时间轴交错卡、漏斗数值定宽、原生表格（斑马+数值列自动右对齐）。
@@ -152,9 +152,16 @@ python scripts/freelayout.py deck.json -o 成品.pptx [--theme orange-vitality]
   ——每页一个 `type` + 内容字段（title/kicker/items/takeaway 等），写前先看
   `references/stylekit/layout-library.md` 的配额表（bullets 1-8、cards ≤6、kpi ≤4、
   timeline ≤6、process ≤5、pyramid/funnel ≤5）；超配额引擎会警告并自动缩排
-- 质量内建：字号沿 TYPE_SCALE 阶梯回落 + 孤字防护 + 9pt 地板；内容块垂直居中
-  不留空肚子；主题色读 `scripts/palettes.json`（13 套，`--theme` 切换或
-  `meta.colors` 自定义 hex），派生色对比度自动兜底；出稿自动过静态排版门禁
+- 质量内建：字号沿 TYPE_SCALE 阶梯回落 + CJK 避头尾断行器（wrap_lines：行首尾
+  禁则+数字量词不可断簇）+ 孤字防护 + 9pt 地板；内容块垂直居中不留空肚子；
+  主题色读 `scripts/palettes.json`（13 套，`--theme` 切换或 `meta.colors` 自定义
+  hex），派生色对比度自动兜底；出稿自动过静态排版门禁
+- 内容级 lint（出稿即打警告）：话题式标题/疑问短句/空洞词/「谢谢观看」结尾 +
+  **幽灵稿清单**（只读全部标题应能讲通故事）；每页 `notes` 字段写演讲者备注
+  （口播稿 40-260 字口径）
+- 配套工具：`scripts/measure_deck.py`（五维机器证据：统一/层级/细节/传达/节奏+PEI）、
+  `scripts/dna_extract.py`（从客户旧稿量 DNA：median 词数硬上限/实际主色/字号档）、
+  visual_gate `--json` 结构化输出
 - 版式选型对齐内容形状：并列要点→bullets，多卡并列→cards，数字→kpi/big_number，
   方案取舍→compare，节点推进→timeline/process，层级→pyramid，转化→funnel，
   他者观点→quote，全篇结论→statement
@@ -199,7 +206,7 @@ deck-dna 等）、awesome-codex-ppt-skills 横评清单及 SkillHub 社区技能
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（100 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（111 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |

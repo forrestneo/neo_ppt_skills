@@ -107,8 +107,8 @@ edits.json 示例（中文稿）：
 ### 自由排版引擎（freelayout，从零排原生新稿）
 
 蒸馏 luobo-ppt / dsh-ppt-master 的「版式=代码、AI 只填内容槽」架构：
-16 种版式函数（封面/目录/章节/要点/卡片/KPI/对比/时间轴/流程/金字塔/漏斗/表格/
-引言/宣言/大数字/结尾），AI 只写 `deck.json`（每页 type + 内容字段），几何字号
+19 种版式函数（封面/目录/章节/要点/卡片/KPI/对比/时间轴/流程/金字塔/漏斗/表格/
+引言/宣言/大数字/结尾/**原生图表/配图/截图**），AI 只写 `deck.json`（每页 type + 内容字段），几何字号
 全由引擎决定——字号阶梯回落 + 孤字防护、内容垂直居中不留空肚子、13 套主题色 +
 派生色对比度兜底、出稿自动过静态排版门禁。
 
@@ -295,7 +295,7 @@ text keeps the template's latin typeface slot.
 ## Free-layout engine (freelayout, build a native deck from scratch)
 
 Distilled from the "layouts are code, AI only fills content slots" architecture
-of luobo-ppt / dsh-ppt-master: 16 layout functions (cover / toc / section /
+of luobo-ppt / dsh-ppt-master: 19 layout functions (cover / toc / section /
 bullets / cards / kpi / compare / timeline / process / pyramid / funnel / table /
 quote / statement / big number / closing). The AI writes only `deck.json`
 (one `type` + content fields per slide); geometry, type scale and spacing are
@@ -306,6 +306,13 @@ contrast fallback, and the static layout gate runs automatically at build.
 ```bash
 python scripts/freelayout.py deck.json -o deck.pptx --theme orange-vitality
 ```
+
+Also included: per-slide speaker notes (`notes` field / `deck_cli --note`),
+content-level lint (assertion-title check, ghost-deck read-through, banned
+vague words), the layout content-type contract (data-required layouts warn on
+non-data content), `scripts/measure_deck.py` (five-dimension machine evidence),
+`scripts/dna_extract.py` (measure the design DNA from approved old decks) and
+`FILL-REPORT.md` (refill delivery report per build).
 
 ## Editing iron rules (engine-enforced, not advice)
 

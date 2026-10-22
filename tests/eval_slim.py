@@ -63,6 +63,8 @@ def t_structure():
             "scripts/layout_audit.py",
             "scripts/visual_gate.py",
             "scripts/freelayout.py",
+            "scripts/measure_deck.py",
+            "scripts/dna_extract.py",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
@@ -463,6 +465,78 @@ def t_freelayout():
               _fl.title_tier("短标题", 48) == 48
               and _fl.title_tier("这是一个超过八个字的标题示例", 48) < 48)
 
+        # 内容级 lint：话题式标题/谢谢观看/幽灵稿
+        lw = _fl.content_lint([{"type": "cover", "title": "工作总结分析"},
+                               {"type": "closing", "title": "谢谢观看"}])
+        joined = " ".join(lw)
+        check("freelayout 内容级 lint 命中",
+              "话题名而非结论" in joined and "谢谢观看" in joined and "幽灵稿" in joined, joined[:200])
+
+        # 新版式端到端：chart 原生图表 + 演讲者备注 + 数据契约警告
+        from pptx import Presentation as _P3
+        spec3 = {"meta": {"theme": "blue-corporate", "scenario": "oral"},
+                 "slides": [
+                     {"type": "chart", "kicker": "数据", "title": "三季度营收环比回升",
+                      "chart_type": "bar", "categories": ["华东", "华南"],
+                      "series": [{"name": "Q2", "values": [42, 35]}, {"name": "Q3", "values": [48, 39]}],
+                      "unit": "亿元", "insights": ["华东贡献过半"],
+                      "takeaway": "增量来自续约", "notes": "本页强调华东大客户续约带来主要增量，约三十秒"},
+                     {"type": "kpi", "title": "概念页误用数据版式",
+                      "items": [{"value": "快", "label": "速度"}]}]}
+        deck3 = Path(td) / "deck3.json"
+        deck3.write_text(json.dumps(spec3, ensure_ascii=False), encoding="utf-8")
+        out3 = Path(td) / "fl3.pptx"
+        r3 = run([FL, str(deck3), "-o", str(out3)], cwd=td)
+        has_chart = False
+        _n = ""
+        if out3.is_file():
+            _p3 = _P3(str(out3))
+            has_chart = any(sh.has_chart for sh in _p3.slides[0].shapes)
+            _n = _p3.slides[0].notes_slide.notes_text_frame.text
+        check("freelayout chart 原生图表落页", r3.returncode == 0 and has_chart,
+              r3.stdout[-200:] + r3.stderr[-200:])
+        check("freelayout 演讲者备注写入+口播字数提示",
+              "华东大客户续约" in _n and "40-260" in r3.stdout)
+        check("freelayout 数据契约警告命中", "数据专用版式" in r3.stdout)
+
+
+# ---------------------------------------------------------------- 3.6 工具链（measure_deck / dna_extract / visual_gate --json）
+def t_tooling():
+    MD = ROOT / "scripts" / "measure_deck.py"
+    DN = ROOT / "scripts" / "dna_extract.py"
+    check("结构存在 measure_deck.py / dna_extract.py", MD.is_file() and DN.is_file())
+    with tempfile.TemporaryDirectory() as td:
+        from pptx import Presentation as _Prs
+        from pptx.util import Inches as _In2, Pt as _Pt2
+        prs = _Prs()
+        prs.slide_width, prs.slide_height = _In2(13.333), _In2(7.5)
+        s = prs.slides.add_slide(prs.slide_layouts[6])
+        tb = s.shapes.add_textbox(_In2(1), _In2(1), _In2(5), _In2(1))
+        tb.text_frame.text = "测量自检标题"
+        prs.save(os.path.join(td, "m.pptx"))
+        r = run([MD, os.path.join(td, "m.pptx")])
+        check("measure_deck 五维证据输出", r.returncode == 0
+              and "统一" in r.stdout and "层级" in r.stdout and "PEI" in r.stdout,
+              r.stdout[-150:] + r.stderr[-150:])
+        rj = run([MD, os.path.join(td, "m.pptx"), "--json", os.path.join(td, "m.json")])
+        check("measure_deck --json", rj.returncode == 0
+              and os.path.isfile(os.path.join(td, "m.json")))
+        rd = run([DN, os.path.join(td, "m.pptx"), "-o", os.path.join(td, "dna.json")])
+        ok_dna = False
+        if os.path.isfile(os.path.join(td, "dna.json")):
+            d = json.loads(Path(os.path.join(td, "dna.json")).read_text(encoding="utf-8"))
+            ok_dna = "budget_hard_cap" in d and d["per_deck"][0]["pages"] == 1
+        check("dna_extract 五字段 DNA 产出", rd.returncode == 0 and ok_dna, rd.stdout[-200:])
+        soffice = r"C:\Program Files\LibreOffice\program\soffice.exe"
+        if os.path.isfile(soffice):
+            rv = run([BUILD.parent / "visual_gate.py", os.path.join(td, "m.pptx"),
+                      "--json", os.path.join(td, "vg.json")])
+            ok_vg = False
+            if os.path.isfile(os.path.join(td, "vg.json")):
+                v = json.loads(Path(os.path.join(td, "vg.json")).read_text(encoding="utf-8"))
+                ok_vg = "findings" in v and "error_count" in v
+            check("visual_gate --json 结构化输出", rv.returncode == 0 and ok_vg,
+                  rv.stdout[-150:] + rv.stderr[-150:])
 
 
 def t_render():
@@ -513,6 +587,8 @@ def main():
     t_build_direct()
     print("-" * 62)
     t_freelayout()
+    print("-" * 62)
+    t_tooling()
     print("-" * 62)
     t_render()
     print("-" * 62)

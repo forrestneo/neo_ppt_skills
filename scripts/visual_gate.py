@@ -15,11 +15,13 @@ pptwise（渲染后几何审计）与 PTT-Studio（逐页检查清单）：
 用法:
   python scripts/visual_gate.py 成品.pptx               # 渲染+全查
   python scripts/visual_gate.py 成品.pptx --keep pdf    # 保留中间 PDF
+  python scripts/visual_gate.py 成品.pptx --json r.json # 结构化输出
 退出码: 0 = 无 error（warning 仅报告）；1 = 有 error；2 = 环境/用法错。
 依赖: LibreOffice（soffice）+ pymupdf。
 """
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -170,6 +172,10 @@ def main(argv):
         print(f"✗ 文件不存在: {src}")
         return 2
     keep = "--keep" in argv
+    json_out = None
+    if "--json" in argv:
+        i = argv.index("--json")
+        json_out = argv[i + 1]
     try:
         with tempfile.TemporaryDirectory(prefix="vgate_") as td:
             pdf = render_pdf(src, Path(td))
@@ -183,6 +189,13 @@ def main(argv):
     except RuntimeError as e:
         print(f"✗ {e}")
         return 2
+    if json_out:
+        with open(json_out, "w", encoding="utf-8") as f:
+            json.dump({"source": str(src),
+                       "findings": [f.__dict__ for f in findings],
+                       "error_count": sum(1 for x in findings if x.severity == "error"),
+                       "warning_count": len(findings) - sum(1 for x in findings if x.severity == "error")},
+                      f, ensure_ascii=False, indent=1)
     n_err = sum(1 for f in findings if f.severity == "error")
     n_warn = len(findings) - n_err
     for f in findings:
