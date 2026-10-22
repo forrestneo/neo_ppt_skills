@@ -104,6 +104,18 @@ edits.json 示例（中文稿）：
 }
 ```
 
+### 自由排版引擎（freelayout，从零排原生新稿）
+
+蒸馏 luobo-ppt / dsh-ppt-master 的「版式=代码、AI 只填内容槽」架构：
+16 种版式函数（封面/目录/章节/要点/卡片/KPI/对比/时间轴/流程/金字塔/漏斗/表格/
+引言/宣言/大数字/结尾），AI 只写 `deck.json`（每页 type + 内容字段），几何字号
+全由引擎决定——字号阶梯回落 + 孤字防护、内容垂直居中不留空肚子、13 套主题色 +
+派生色对比度兜底、出稿自动过静态排版门禁。
+
+```bash
+python scripts/freelayout.py deck.json -o 成品.pptx --theme orange-vitality
+```
+
 ### 备线：图片矢量复刻
 
 `extras/` 收录微信文章取图、OCR 坐标级重建（文字按原图坐标原位落位）、
@@ -159,7 +171,7 @@ minify+gzip（引擎透明解压）、裁掉引擎不读的元数据字段、内
   → `palette_check.py`（配色体系，rc=3）；交付前再手动 `visual_gate.py`
   （渲染视觉门：叠字/数字劈行/文字出页=error）+ LibreOffice 目检
 - 备线交付前经"质量门禁 0 error + 结构清点 + 渲染与原图并排目检"三重校验
-- **88 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
+- **93 项回归基线**：`python tests/eval_slim.py`（结构完整性 / CLI 全接口 /
   边界与安全路径 / 铁律门禁 / LibreOffice 渲染 / 依赖可导入）
 
 ## 版权
@@ -263,10 +275,25 @@ English works out of the box: slot capacity is measured in visual width units
 (1 CJK char ≈ 2 latin chars), the overflow gate converts automatically, and
 text keeps the template's latin typeface slot.
 
+## Free-layout engine (freelayout, build a native deck from scratch)
+
+Distilled from the "layouts are code, AI only fills content slots" architecture
+of luobo-ppt / dsh-ppt-master: 16 layout functions (cover / toc / section /
+bullets / cards / kpi / compare / timeline / process / pyramid / funnel / table /
+quote / statement / big number / closing). The AI writes only `deck.json`
+(one `type` + content fields per slide); geometry, type scale and spacing are
+all decided by the engine — TYPE_SCALE fallback with orphan-line guard,
+vertically centered content blocks (no hollow cards), 13 themes + derived-color
+contrast fallback, and the static layout gate runs automatically at build.
+
+```bash
+python scripts/freelayout.py deck.json -o deck.pptx --theme orange-vitality
+```
+
 ## Editing iron rules (engine-enforced, not advice)
 
 Codified in `scripts/build_pptx.py` and guarded by `tests/eval_slim.py`
-(75-item regression baseline). Violations refuse to save; `--allow-*` flags
+(93-item regression baseline). Violations refuse to save; `--allow-*` flags
 are explicit opt-outs:
 
 | Rule | Meaning | Engine behavior |

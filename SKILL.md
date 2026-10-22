@@ -22,6 +22,7 @@ description: >-
 | 「把 PPT 图片/截图转成可编辑 PPTX / 复刻背景 / 抠图标」 | **B 图片还原**（只做还原） |
 | 「要一份既好看又能编辑的完整成品」（没点名时默认） | **C 端到端**（A→B 串联） |
 | 「有现成内容，用合辑模板换字出稿」 | **D 模板换字**（最快） |
+| 「从零排出一份原生可编辑的新 deck / 要现代风组件」 | **E 自由排版**（freelayout，16 版式） |
 
 ## 模式 C：端到端编排（默认）
 
@@ -134,6 +135,30 @@ python scripts/deck_cli.py build -o 成品.pptx 24 "新标题" \
 英文稿同理——容量按视觉宽度自动换算（1 汉字 ≈ 2 英文字符），字体沿用
 模板 latin 槽位。
 
+## 模式 E：自由排版（freelayout，从零排原生新稿）
+
+蒸馏 luobo-ppt / dsh-ppt-master 的「版式=代码、AI 只填内容槽」架构：
+**16 种版式函数**（cover/toc/section/bullets/cards/kpi/compare/timeline/process/
+pyramid/funnel/table/quote/statement/big_number/closing），AI 永不写坐标——
+只写 deck.json（每页 type + 内容字段），几何、字号、间距全部由引擎决定。
+组件灵活：卡片 1-6 张自动网格、KPI 涨跌徽章（`delta_color: good/bad` 覆盖语义色）、
+双栏对比推荐侧、时间轴交错卡、漏斗数值定宽、原生表格（斑马+数值列自动右对齐）。
+
+```bash
+python scripts/freelayout.py deck.json -o 成品.pptx [--theme orange-vitality]
+```
+
+- deck.json 格式：`{"meta": {"theme", "footer"}, "slides": [{"type": "...", ...}]}`
+  ——每页一个 `type` + 内容字段（title/kicker/items/takeaway 等），写前先看
+  `references/stylekit/layout-library.md` 的配额表（bullets 1-8、cards ≤6、kpi ≤4、
+  timeline ≤6、process ≤5、pyramid/funnel ≤5）；超配额引擎会警告并自动缩排
+- 质量内建：字号沿 TYPE_SCALE 阶梯回落 + 孤字防护 + 9pt 地板；内容块垂直居中
+  不留空肚子；主题色读 `scripts/palettes.json`（13 套，`--theme` 切换或
+  `meta.colors` 自定义 hex），派生色对比度自动兜底；出稿自动过静态排版门禁
+- 版式选型对齐内容形状：并列要点→bullets，多卡并列→cards，数字→kpi/big_number，
+  方案取舍→compare，节点推进→timeline/process，层级→pyramid，转化→funnel，
+  他者观点→quote，全篇结论→statement
+
 ## 风格库与叙事选型（stylekit）
 
 蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 11 个
@@ -170,7 +195,7 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（88 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（93 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |
@@ -187,7 +212,7 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 
 ```
 SKILL.md            # 本文件（唯一技能卡）
-scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + restore/（四层还原）+ imagegen/
+scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + freelayout（自由排版 16 版式）+ restore/（四层还原）+ imagegen/
 templates/deck-all/ # 577 页合辑模板（已预统一活力橙）+ detail（槽位容量）+ palette.json（页主色）
 references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门·风格抽取·保真自评·过程纪律，蒸馏自 ppt-master 与 11 个 PPT 引擎）
 tests/eval_slim.py  # 回归基线

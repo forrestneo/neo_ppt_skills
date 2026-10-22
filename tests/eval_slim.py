@@ -389,7 +389,58 @@ def t_build_direct():
         check("gz 路径溢出 lint 生效", "偏长" in both or "容量" in both or "AUTOFIT" in both)
 
 
-# ---------------------------------------------------------------- 4 渲染质量
+# ---------------------------------------------------------------- 3.5 freelayout 自由排版引擎
+def t_freelayout():
+    FL = ROOT / "scripts" / "freelayout.py"
+    check("结构存在 scripts/freelayout.py", FL.is_file())
+    with tempfile.TemporaryDirectory() as td:
+        deck = Path(td) / "deck.json"
+        spec = {"meta": {"theme": "orange-vitality", "footer": "评测简报"},
+                "slides": [
+                    {"type": "cover", "kicker": "评测", "title": "自由排版引擎端到端",
+                     "subtitle": "覆盖六个代表版式与主题联动", "meta": "2026 · 评测"},
+                    {"type": "kpi", "kicker": "指标", "title": "四项核心指标",
+                     "items": [
+                         {"value": "38%", "label": "线上化率", "delta": "+6.2pt"},
+                         {"value": "12 天", "label": "上线周期", "delta": "-3 天",
+                          "delta_color": "good"}],
+                     "takeaway": "起点不低，差距仍在"},
+                    {"type": "cards", "kicker": "方向", "title": "三大攻坚",
+                     "items": [
+                         {"title": "渠道", "text": "客户视图全渠道打通"},
+                         {"title": "数据", "text": "统一指标口径平台"},
+                         {"title": "风控", "text": "反欺诈前置交易层"}]},
+                    {"type": "table", "kicker": "风险", "title": "风险与责任人",
+                     "headers": ["风险", "概率", "责任人"],
+                     "rows": [["数据质量", "中", "数据管理部"],
+                              ["人才流失", "中", "人力资源部"]]},
+                    {"type": "statement", "kicker": "请示", "headline": "请批准专班编制与首期预算。",
+                     "body": "详版清单已附会议材料。"},
+                    {"type": "closing", "title": "谢谢审议"}]}
+        deck.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+        out = Path(td) / "fl.pptx"
+        r = run([FL, str(deck), "-o", str(out)], cwd=td)
+        check("freelayout 六版式出稿 rc=0", r.returncode == 0 and out.is_file(),
+              r.stdout[-200:] + r.stderr[-200:])
+        if out.is_file():
+            from pptx import Presentation
+            p = Presentation(str(out))
+            check("freelayout 页数与静态门禁内建", len(p.slides._sldIdLst) == 6
+                  and "静态排版门禁通过" in r.stdout)
+            texts = " ".join(sh.text_frame.text for sl in p.slides
+                             for sh in sl.shapes if sh.has_text_frame)
+            check("freelayout 内容落页", "自由排版引擎端到端" in texts
+                  and "谢谢审议" in texts)
+        # 未知版式容错 + 配额警告
+        spec["slides"].append({"type": "no_such_layout", "title": "x", "items": ["a"] * 12})
+        deck.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+        out2 = Path(td) / "fl2.pptx"
+        r2 = run([FL, str(deck), "-o", str(out2)], cwd=td)
+        check("freelayout 未知版式降级+配额警告不崩", r2.returncode == 0
+              and "未知版式" in r2.stdout and "配额" in r2.stdout)
+
+
+
 def t_render():
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "r.pptx"
@@ -436,6 +487,8 @@ def main():
     t_cli()
     print("-" * 62)
     t_build_direct()
+    print("-" * 62)
+    t_freelayout()
     print("-" * 62)
     t_render()
     print("-" * 62)
