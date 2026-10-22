@@ -142,29 +142,110 @@ def units(text: str) -> float:
 
 
 def est_lines(text: str, pt: float, width_in: float) -> int:
+    """字符宽度模型的粗估行数（与 layout_audit 同口径，用于快速判定）。"""
     avail = max(width_in, 0.1) * _IN
     need = units(text) * pt * 12700
     return max(1, math.ceil(need / avail))
 
 
+# CJK 排版断行器（蒸馏 slide-skill text_wrap.py + guizang 中文分档，MIT）：
+# 避头尾（kinsoku）+ 数字量词不可断簇 + 孤行修复。折行模拟与 fit_size
+# 共用同一模型——生成与测量一致才不会"估算说放得下、PowerPoint 里折三行"。
+_KINSOKU_HEAD = set("，。、；：！？）》」』】〕…％‰°”’·")     # 行首禁则字
+_KINSOKU_TAIL = set("（《「『【〔“‘")                          # 行尾禁则字
+_MEASURE_WORDS = ("小时", "分钟", "公里", "千克", "万元", "亿元", "个月", "年级",
+                  "平米", "百分点", "个百分点", "亿", "万", "%", "°")
+
+def _tokens(text: str):
+    """分词：CJK 逐字；拉丁/数字串整词；数字+量词合并为不可断簇。"""
+    out, buf, i = [], "", 0
+    while i < len(text):
+        c = text[i]
+        if ord(c) > 0x2E80:
+            if buf:
+                out.append(buf)
+                buf = ""
+            # 数字+量词簇：跳过空格回看，数字结尾的 token 与量词并簇（"6.5 小时"不可断）
+            if any(text[i:].startswith(q) for q in _MEASURE_WORDS):
+                j = len(out) - 1
+                if j >= 0 and out[j] == " ":
+                    j -= 1
+                if j >= 0 and out[j] and out[j][-1:].isdigit():
+                    q = max((q for q in _MEASURE_WORDS if text[i:].startswith(q)), key=len)
+                    glued = out[j] + (" " if j + 1 < len(out) else "") + q
+                    out = out[:j] + [glued]
+                    i += len(q)
+                    continue
+            out.append(c)
+            i += 1
+        elif c.isspace():
+            if buf:
+                out.append(buf)
+                buf = ""
+            out.append(" ")
+            i += 1
+        else:
+            buf += c
+            i += 1
+    if buf:
+        out.append(buf)
+    return out
+
+
+def wrap_lines(text: str, pt: float, width_in: float, bold: bool = False):
+    """模拟 PowerPoint 折行（含避头尾），返回行列表。"""
+    if not text:
+        return [""]
+    avail_pt = max(width_in, 0.1) * 72 * (0.94 if bold else 1.0)
+    lines, cur, cur_w = [], "", 0.0
+    for tk in _tokens(text):
+        w = units(tk) * pt
+        if cur and cur_w + w > avail_pt:
+            # 避头尾修正：行首禁则字 → 把标点连带前字下移；行尾禁则字 → 标点上提
+            if len(tk) == 1 and tk in _KINSOKU_HEAD and cur:
+                lines.append(cur)
+                cur, cur_w = tk, w
+            elif len(cur) >= 2 and cur[-1] in _KINSOKU_HEAD and len(cur) > 1:
+                carry = cur[-1]
+                lines.append(cur[:-1])
+                cur, cur_w = carry + tk, units(carry) * pt + w
+            else:
+                lines.append(cur)
+                cur, cur_w = tk, w
+        else:
+            cur, cur_w = cur + tk, cur_w + w
+    if cur:
+        lines.append(cur)
+    # 孤行修复：末行只剩 1 个字且 >1 行 → 把前行末字拉下来（PTT-Studio 孤字规则）
+    if len(lines) >= 2 and len(lines[-1].replace(" ", "")) == 1 \
+            and len(lines[-2]) >= 2:
+        lines[-1] = lines[-2][-1] + lines[-1]
+        lines[-2] = lines[-2][:-1]
+    return lines
+
+
 def fit_size(text: str, width_in: float, height_in: float, base: float,
              floor: float = 9.0, bold: bool = False, lh: float = 1.3,
              max_lines: int = 99) -> float:
-    """字号沿 TYPE_SCALE 回落至装得下；末行孤字再降一档（孤字防护）。"""
-    size = min(base, max(TYPE_SCALE, key=lambda s: s <= base) if base in TYPE_SCALE else base)
+    """字号沿 TYPE_SCALE 回落至装得下；折行模拟含避头尾，末行孤字自动再降一档。"""
     candidates = [s for s in TYPE_SCALE if floor <= s <= base] or [floor]
     picked = candidates[-1]
     for s in candidates:
-        lines = est_lines(text, s, width_in * (0.92 if bold else 1.0))
-        if lines * s * lh / 72 <= height_in and lines <= max_lines:
+        lines = wrap_lines(text, s, width_in, bold=bold)
+        if len(lines) * s * lh / 72 <= height_in and len(lines) <= max_lines:
             picked = s
-            if lines >= 2:                            # 孤字防护：末行只剩 ~1 字再降一档
-                last_w = units(text) * s - (lines - 1) * width_in * 72 / s * s / 72
-                usable = width_in * 72
-                if usable - (lines - 1) * usable / lines < 1.1 * s and s != candidates[0]:
-                    picked = candidates[max(0, candidates.index(s) - 1)]
             break
     return picked
+
+
+def title_tier(text: str, base: float):
+    """标题按字数分档（guizang 瑞士规则）：≤8 字一档、9-16 降档、>16 再降并建议改写。"""
+    n = len(text)
+    if n <= 8:
+        return base
+    if n <= 16:
+        return base * 0.78
+    return base * 0.60
 
 
 # ---------------------------------------------------------------- 绘制原语
@@ -364,10 +445,12 @@ def v_cover(d: Deck, slide, s):
                 color=t.primary if not s.get("dark") else _dark_ink(bg), bold=True,
                 align=PP_ALIGN.CENTER)
         y += 0.66
-    d._auto_text(slide, x, y, 8.6, 2.1, s["title"], 48, color=ink, bold=True,
-                 lh=1.12, floor=26)
-    lines = est_lines(s["title"], 48, 8.6)
-    y += lines * 48 * 1.12 / 72 + 0.22
+    d._auto_text(slide, x, y, 8.6, 2.1, s["title"], title_tier(s["title"], 48),
+                 color=ink, bold=True, lh=1.12, floor=26)
+    tpt = fit_size(s["title"], 8.6, 2.1, title_tier(s["title"], 48), bold=True,
+                   lh=1.12, floor=26)
+    lines = len(wrap_lines(s["title"], tpt, 8.6, bold=True))
+    y += lines * tpt * 1.12 / 72 + 0.22
     d._rect(slide, x, y, 1.3, 0.06, fill=t.primary)
     y += 0.32
     if s.get("subtitle"):
@@ -880,6 +963,11 @@ LAYOUTS = {
 QUOTA = {"bullets": 8, "cards": 6, "kpi": 4, "timeline": 6, "process": 5,
          "pyramid": 5, "funnel": 5, "toc": 8, "compare": 5}
 
+# 版式内容契约（蒸馏 guizang swiss-layout-lock）：数据专用版式收到无数据内容
+# 时警告——"给概念列表编百分比会被识破"，宁换通用版式也不编数。
+_DATA_CONTRACT = {"kpi": "kpi/items", "big_number": "number", "funnel": "items[].value",
+                  "table": "rows"}
+
 
 # ---------------------------------------------------------------- 组装
 def build(deck_path, out_path, theme_id=None, footer_text=None, quiet=False):
@@ -904,7 +992,18 @@ def build(deck_path, out_path, theme_id=None, footer_text=None, quiet=False):
             key = "items" if "items" in s else ("steps" if "steps" in s else None)
             if key and len(s[key]) > quota:
                 warns.append(f"第{d.n+1}页 {typ}: {len(s[key])} 条 > 配额 {quota}（建议拆页）")
+        if typ in _DATA_CONTRACT:
+            blob = json.dumps(s, ensure_ascii=False)
+            if not any(ch.isdigit() for ch in blob):
+                warns.append(f"第{d.n+1}页 {typ}: 数据专用版式但内容不含任何数字——"
+                             f"请补真实数据，或改用通用版式（{_DATA_CONTRACT[typ]} 字段应承载数值）")
         slide = d._slide()
+        seen_types = getattr(d, "_types", None)
+        if seen_types is None:
+            seen_types = d._types = []
+        seen_types.append(typ)
+        if len(seen_types) >= 3 and seen_types[-1] == seen_types[-2] == seen_types[-3]:
+            warns.append(f"第{d.n}页 {typ}: 同一版式连续 3 页（节奏单调，建议换版式或插大字页）")
         fn(d, slide, s)
         if typ not in ("cover",):
             d.footer(slide)

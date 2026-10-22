@@ -161,10 +161,11 @@ python scripts/freelayout.py deck.json -o 成品.pptx [--theme orange-vitality]
 
 ## 风格库与叙事选型（stylekit）
 
-蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 11 个
+蒸馏自 [ppt-master](https://github.com/hugohe3/ppt-master)（MIT）与 16 个
 DSH/独立 PPT 引擎（pptwise、dsh-ppt、dsh-ppt-maker、dsh-ppt-master、PTT-Studio、
 PPT-Design-Skill、dsh-ppt-canvas、dsh-office-tools、deepseek-design、luobo-ppt、
-codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
+codex-slides、guizang-ppt-skill、baoyu-skills、frontend-slides、slide-skill、
+deck-dna 等）、awesome-codex-ppt-skills 横评清单及 SkillHub 社区技能的知识库，
 各篇头部注明来源与许可；按需查阅、只读选中的一篇：
 
 | 文件 | 内容 | 何时查 |
@@ -181,6 +182,9 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 | `references/stylekit/style-extraction.md` | 风格抽取与美化：参考图→风格单（脚本管数字/模型管气质）、14 套预设组织（rules 与 forbid 分离）、三样张选型、品牌套件（VI 手册→色板吸附） | 用户给参考图要"照这个风格改"、给企业 VI 手册、或挑风格定不下来时 |
 | `references/stylekit/fidelity-and-review.md` | 内容保真与自评：安静的改动五类门禁、QA 防作弊三设计、五维自评（统一/层级/细节/传达/节奏）、大纲门禁（结论式标题判定/幽灵稿） | 美化改稿交付前、内容生成出大纲后 |
 | `references/stylekit/process-and-benchmark.md` | 过程纪律与评测：双信号验证（JSON 不是视觉 QA）、known-errors 先分类再重试、checkpoint 可见化、版本不可变、PEI 可编辑性分级、横评方法论 | 长流程出稿/改稿时、对外声明能力时、重大改版后自测 |
+| `references/stylekit/style-dimensions.md` | 风格维度系统：四维参数化（质感×色彩×字体×密度=525 组合+兼容矩阵）、STYLE_INSTRUCTIONS 单一事实源、双视觉系统、样张先行与三层渐进披露 | 模式 A 定风格体系、风格文档要可组合/可路由时 |
+| `references/stylekit/measure-driven.md` | 测量驱动设计：参考稿 DNA 五字段、median 词数硬上限、CJK 断行与字号三信号、spec 冻结防漂移、哈希证据链、生成式重建合并策略 | 有客户旧稿要沿用风格、四层还原取字号、长会话多页防跑偏 |
+| `references/stylekit/content-enrichment.md` | 内容检索填充与去 AI 感：缺口识别→检索技巧→饱满度口径、AI 感禁止清单（标题下划线/默认蓝/同版式连用）、中文风格关键词路由 | 用户只给一句话主题要补内容、交付前审美自检、用户说"莫兰迪/MUJI 感"时 |
 
 用法约束：**风格（怎么画）、色板（颜色怎么上）、叙事模式（怎么论证）三者独立
 选型、一套 PPT 各定一种**；风格不携带固定 HEX——颜色一律走模板主题或
@@ -195,7 +199,7 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 
 ## 编辑铁律（引擎强制，非建议）
 
-固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（93 项回归基线），
+固化在 `scripts/build_pptx.py` 与 `tests/eval_slim.py`（100 项回归基线），
 违反即拒绝出稿，`--allow-*` 为显式豁免：
 
 | 铁律 | 内容 | 引擎行为 |
@@ -214,7 +218,7 @@ codex-slides）及 awesome-codex-ppt-skills 横评清单的知识库，
 SKILL.md            # 本文件（唯一技能卡）
 scripts/            # 全部引擎：deck_cli/build_pptx/palette_check + freelayout（自由排版 16 版式）+ restore/（四层还原）+ imagegen/
 templates/deck-all/ # 577 页合辑模板（已预统一活力橙）+ detail（槽位容量）+ palette.json（页主色）
-references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门·风格抽取·保真自评·过程纪律，蒸馏自 ppt-master 与 11 个 PPT 引擎）
+references/         # mode-a/mode-b/pipeline 执行细则 + stylekit/（风格·色板·图式·叙事·排版五门·风格抽取·保真自评·过程纪律·风格维度·测量驱动，蒸馏自 ppt-master 与 16 个 PPT 引擎）
 tests/eval_slim.py  # 回归基线
 extras/ docs/       # 备线管线；教程
 ```

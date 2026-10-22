@@ -57,8 +57,12 @@ def t_structure():
             "references/stylekit/style-extraction.md",
             "references/stylekit/fidelity-and-review.md",
             "references/stylekit/process-and-benchmark.md",
+            "references/stylekit/style-dimensions.md",
+            "references/stylekit/measure-driven.md",
+            "references/stylekit/content-enrichment.md",
             "scripts/layout_audit.py",
             "scripts/visual_gate.py",
+            "scripts/freelayout.py",
             "extras/pipeline.md"]
     for rel in need:
         check("结构存在 " + rel, (ROOT / rel).is_file())
@@ -78,11 +82,18 @@ def t_structure():
               and cnt("style-extraction.md", r"^## ") >= 5
               and cnt("fidelity-and-review.md", r"^## ") >= 5
               and cnt("process-and-benchmark.md", r"^## ") >= 7
+              and cnt("style-dimensions.md", r"^## ") >= 5
+              and cnt("measure-driven.md", r"^## ") >= 7
+              and cnt("content-enrichment.md", r"^## ") >= 4
+              and "wrap_lines" in (ROOT / "scripts" / "freelayout.py").read_text(encoding="utf-8")
+              and "_DATA_CONTRACT" in (ROOT / "scripts" / "freelayout.py").read_text(encoding="utf-8")
+              and "title_tier" in (ROOT / "scripts" / "freelayout.py").read_text(encoding="utf-8")
               and "ppt-master" in (sk / "visual-styles.md").read_text(encoding="utf-8")
               and "pptwise" in (sk / "layout-library.md").read_text(encoding="utf-8")
               and "dsh-ppt-canvas" in (sk / "edit-fidelity.md").read_text(encoding="utf-8"))
     check("stylekit 蒸馏条目齐全（18 风格 / ≥34 渲染+色板 / 11 图式 / ≥5 叙事+验收 / "
-          "4 篇排版四门各 ≥7 节 / luobo 两篇各 ≥5 节 / 过程纪律 ≥7 节，含出处）", ok_cnt)
+          "4 篇排版四门各 ≥7 节 / luobo 两篇各 ≥5 节 / 过程纪律 ≥7 节 / 维度+测量两篇，"
+          "含出处；freelayout 含断行器+契约+分档）", ok_cnt)
 
     # layout_audit 端到端：好稿放行（rc=0，含出血装饰/孤字/装饰压字 warning）、
     # 坏稿拦截（越界 error + 重叠 + XX 占位符，rc=1）
@@ -438,6 +449,19 @@ def t_freelayout():
         r2 = run([FL, str(deck), "-o", str(out2)], cwd=td)
         check("freelayout 未知版式降级+配额警告不崩", r2.returncode == 0
               and "未知版式" in r2.stdout and "配额" in r2.stdout)
+
+        # CJK 断行器单测：避头尾 + 数字量词不可断簇 + 标题分档
+        sys.path.insert(0, str(FL.parent))
+        import freelayout as _fl
+        ls = _fl.wrap_lines("项目推进顺利，成本下降明显，风险受控", 14, 2.2)
+        check("freelayout 避头尾（行首无禁则字）",
+              all(not l or l[0] not in _fl._KINSOKU_HEAD for l in ls), str(ls))
+        ls2 = _fl.wrap_lines("平均等待 6.5 小时以上", 12, 1.2)
+        check("freelayout 数字量词不可断簇",
+              any("6.5 小时" in l or "6.5小时" in l for l in ls2), str(ls2))
+        check("freelayout 标题字数分档",
+              _fl.title_tier("短标题", 48) == 48
+              and _fl.title_tier("这是一个超过八个字的标题示例", 48) < 48)
 
 
 
