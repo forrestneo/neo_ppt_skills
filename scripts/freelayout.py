@@ -268,7 +268,7 @@ class Deck:
         return self.prs.slides.add_slide(self.blank)
 
     def _rect(self, slide, x, y, w, h, fill=None, line=None, round_=False, radius=0.08,
-              shadow=False):
+              shadow=False, rotation=None):
         shp = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE if round_ else MSO_SHAPE.RECTANGLE,
             Emu(int(x * _IN)), Emu(int(y * _IN)), Emu(int(w * _IN)), Emu(int(h * _IN)))
@@ -288,7 +288,51 @@ class Deck:
             shp.line.color.rgb = line
             shp.line.width = Pt(0.75)
         shp.shadow.inherit = False
+        if rotation:
+            shp.rotation = rotation               # 微旋转（±0.5~2°）破机器感
         return shp
+
+    def _ghost(self, slide, text, x=None, y=None, size=None, color=None):
+        """巨型背景字（guizang ghost：34vw @6% 透明度压底）——页面的"人味锚点"。"""
+        t = self.theme
+        size = min(size or 220, int((H - 0.5) * 72))
+        w = min(W - 1.0, units(text) * size / 72 * 1.05 + 0.4)
+        x = x if x is not None else max(0.2, W - w - 0.2)
+        y = y if y is not None else max(0.2, H - size / 72 - 0.45)
+        self._text(slide, x, y, min(w, W - x - 0.1), size / 72 + 0.25, text, size,
+                   color=color or _mix(t.bg, t.primary, 0.09), bold=True,
+                   align=PP_ALIGN.RIGHT)
+
+    def _marked_text(self, slide, x, y, w, h, text, pt, color=None, mark=None,
+                     bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP,
+                     lh=1.2, max_lines=2, floor=12):
+        """标题渲染：**词** 自动垫荧光笔标记（半透明 accent 矩形微旋转 -0.8°），
+        其余正常——手工划重点的"活人感"来源。"""
+        t = self.theme
+        mark = mark or _mix(t.bg, t.accent, 0.30)
+        plain = text.replace("**", "")
+        parts = re.split(r"\*\*(.+?)\*\*", text)
+        total_w = units(plain) * pt * 1.02 / 72
+        scale = min(1.0, (w - 0.1) / total_w) if total_w > w else 1.0
+        cx = x
+        # 单行场景：荧光垫按段宽落位；多行由 word_wrap 自然处理（垫只画第一处前 3 个标记）
+        marks_drawn = 0
+        cursor_x = x
+        for idx, part in enumerate(parts):
+            if not part:
+                continue
+            is_mark = idx % 2 == 1
+            pw = units(part) * pt * scale / 72
+            if is_mark and marks_drawn < 3 and pw < w:
+                self._rect(slide, cx - 0.04, y + 0.02, pw + 0.10, pt / 72 * 1.18,
+                           fill=mark, round_=True, radius=0.30, rotation=-0.8)
+                marks_drawn += 1
+            self._text(slide, cx, y, pw + 0.12, h, part, pt * scale,
+                       color=color or t.text, bold=bold, align=PP_ALIGN.LEFT,
+                       anchor=anchor, lh=lh)
+            cursor_x += pw
+            cx = cursor_x
+        return pt * scale
 
     def _oval(self, slide, x, y, d, fill=None, line=None):
         shp = slide.shapes.add_shape(MSO_SHAPE.OVAL, Emu(int(x * _IN)), Emu(int(y * _IN)),
@@ -390,8 +434,14 @@ class Deck:
         if kicker:
             self._text(slide, MX, y, CW, 0.28, kicker, 11, color=t.primary, bold=True)
             y += 0.32
-        _, pt = self._auto_text(slide, MX, y, CW, 0.66, title, TITLE_MAX, bold=True,
-                                max_lines=1, floor=16)
+        if "**" in (title or ""):                     # 标题带 **词** → 荧光笔标记
+            pt = fit_size(plain_marked(title), CW, 0.66, TITLE_MAX, bold=True,
+                          max_lines=1, floor=16)
+            self._marked_text(slide, MX, y, CW, 0.66, title, pt, bold=True,
+                              max_lines=1, floor=16, lh=1.15)
+        else:
+            _, pt = self._auto_text(slide, MX, y, CW, 0.66, title, TITLE_MAX, bold=True,
+                                    max_lines=1, floor=16)
         y += max(0.62, pt / 72 * 1.25) + 0.06
         self._rect(slide, MX, y, 0.9, 0.045, fill=t.primary)
         y += 0.045
@@ -412,7 +462,8 @@ class Deck:
         t = self.theme
         y = CONTENT_BOTTOM - 0.52 if y is None else y
         w = (w or CW)
-        self._rect(slide, MX, y, w, 0.52, fill=t.tint, round_=True, radius=0.5)
+        self._rect(slide, MX, y, w, 0.52, fill=t.tint, round_=True, radius=0.5,
+                   rotation=0.4)
         self._rect(slide, MX + 0.16, y + 0.14, 0.06, 0.24, fill=t.primary)
         self._auto_text(slide, MX + 0.36, y + 0.06, w - 0.55, 0.40, text, 13,
                         color=t.strong, bold=True, anchor=MSO_ANCHOR.MIDDLE)
@@ -456,42 +507,56 @@ class Deck:
 # ---------------------------------------------------------------- 版式函数
 def v_cover(d: Deck, slide, s):
     t = d.theme
-    if s.get("dark"):
+    dark = bool(s.get("dark"))
+    if dark:
         bg = t.deep
-        ink, sub_ink = _dark_ink(bg), _mix(_dark_ink(bg), bg, 0.30)
+        ink, sub_ink = _dark_ink(bg), _sub_ink(bg, _dark_ink(bg), 0.30)
         d._rect(slide, 0, 0, W, H, fill=bg)
+        band = _mix(bg, ink, 0.08)
     else:
         ink, sub_ink = t.text, t.muted
         d._rect(slide, 0, 0, W, H, fill=t.bg)
-        # 同心圆装饰组（≤3 件，右侧，primary 低饱和）
-        for i, dd in enumerate((3.6, 2.7, 1.8)):
-            d._oval(slide, W - MX - dd - 0.6, 3.75 - dd / 2, dd,
-                    fill=None, line=_mix(t.bg, t.primary, 0.18 + i * 0.06))
-        d._oval(slide, W - MX - 1.35, 3.4, 0.7, fill=_mix(t.bg, t.primary, 0.22))
-        d._rect(slide, 0, H - 0.14, W, 0.14, fill=t.primary)
+        # 不对称右缘色带（全高 1/4）+ 幽灵巨型字压底——打破居中对称的机器感
+        d._rect(slide, W - 3.2, 0, 3.2, H, fill=_mix(t.bg, t.primary, 0.07))
+        band = None
+    ghost = s.get("ghost") or (s["title"][:4] if s.get("title") else "")
+    if ghost:
+        d._ghost(slide, ghost, size=170,
+                 color=_mix(bg if dark else t.bg, ink if dark else t.primary,
+                            0.10 if dark else 0.09))
     x = MX + 0.2
-    y = 1.75
+    y = 1.85
     if s.get("kicker"):
         kw = max(1.3, units(s["kicker"]) * 0.16)
-        d._rect(slide, x, y, kw, 0.4, fill=t.tint if not s.get("dark") else _mix(bg, _dark_ink(bg), 0.12),
-                round_=True, radius=0.5)
+        d._rect(slide, x, y, kw, 0.4, fill=t.tint if not dark else _mix(bg, ink, 0.12),
+                round_=True, radius=0.5, rotation=-1.2)   # 胶囊微旋转：手工贴上去的
         d._text(slide, x, y + 0.075, kw, 0.28, s["kicker"], 12,
-                color=t.primary if not s.get("dark") else _dark_ink(bg), bold=True,
+                color=t.primary if not dark else ink, bold=True,
                 align=PP_ALIGN.CENTER)
         y += 0.66
-    d._auto_text(slide, x, y, 8.6, 2.1, s["title"], title_tier(s["title"], 48),
-                 color=ink, bold=True, lh=1.12, floor=26)
-    tpt = fit_size(s["title"], 8.6, 2.1, title_tier(s["title"], 48), bold=True,
-                   lh=1.12, floor=26)
-    lines = len(wrap_lines(s["title"], tpt, 8.6, bold=True))
-    y += lines * tpt * 1.12 / 72 + 0.22
-    d._rect(slide, x, y, 1.3, 0.06, fill=t.primary)
-    y += 0.32
+    title = s["title"]
+    tpt = title_tier(title, 54)
+    tpt = fit_size(plain_marked(title), 8.0, 2.3, tpt, bold=True, lh=1.1, floor=26)
+    d._marked_text(slide, x, y, 8.2, 2.3, title, tpt, color=ink, bold=True, lh=1.1,
+                   floor=26,
+                   mark=_mix(t.bg, t.accent, 0.32) if not dark else _mix(bg, t.accent, 0.45))
+    lines = len(wrap_lines(plain_marked(title), tpt, 8.0, bold=True))
+    y += lines * tpt * 1.1 / 72 + 0.26
+    d._rect(slide, x, y, 1.3, 0.06, fill=t.primary, rotation=0.6)
+    y += 0.34
     if s.get("subtitle"):
-        d._auto_text(slide, x, y, 7.9, 0.9, s["subtitle"], 16, color=sub_ink, lh=1.45)
+        d._auto_text(slide, x, y, 7.4, 0.9, s["subtitle"], 16, color=sub_ink, lh=1.5)
         y += 0.6
     if s.get("meta"):
-        d._text(slide, x, H - 1.05, 8.0, 0.3, s["meta"], 11, color=sub_ink)
+        d._rect(slide, x, H - 1.18, 0.06, 0.52, fill=t.primary)
+        d._text(slide, x + 0.18, H - 1.12, 8.0, 0.4, s["meta"], 11, color=sub_ink)
+    if band is None and not dark:
+        pass
+    d._rect(slide, 0, H - 0.12, W, 0.12, fill=t.primary)
+
+
+def plain_marked(text: str) -> str:
+    return (text or "").replace("**", "")
 
 
 def v_toc(d: Deck, slide, s):
@@ -929,7 +994,7 @@ def v_statement(d: Deck, slide, s):
     bg = t.deep
     ink = _dark_ink(bg)
     d._rect(slide, 0, 0, W, H, fill=bg)
-    head = s.get("headline", "")
+    head = plain_marked(s.get("headline", ""))
     hpt = fit_size(head, CW - 0.8, 2.2, 30, floor=16, bold=True, lh=1.25)
     hlines = est_lines(head, hpt, CW - 0.8)
     body = s.get("body", "")
@@ -944,8 +1009,13 @@ def v_statement(d: Deck, slide, s):
         y += 0.40
     d._rect(slide, MX + 0.2, y + 0.05, 0.07, min(2.6, hlines * hpt * 1.25 / 72 + 0.3),
             fill=_mix(bg, ink, 0.75))
-    d._auto_text(slide, MX + 0.55, y, CW - 0.8, 2.2, head, 30,
-                 color=ink, bold=True, lh=1.25, floor=16)
+    if "**" in (s.get("headline") or ""):
+        d._marked_text(slide, MX + 0.55, y, CW - 0.8, 2.2, s["headline"], 30,
+                       color=ink, bold=True, lh=1.25, floor=16,
+                       mark=_mix(bg, t.accent, 0.50))
+    else:
+        d._auto_text(slide, MX + 0.55, y, CW - 0.8, 2.2, head, 30,
+                     color=ink, bold=True, lh=1.25, floor=16)
     y += hlines * hpt * 1.25 / 72 + 0.30
     if body:
         d._auto_text(slide, MX + 0.55, y, CW - 1.2, 1.2, body, 14,
@@ -1269,7 +1339,7 @@ def _adapt_for(new_type: str, s: dict) -> dict:
 _TOPIC_SUFFIX = ("介绍", "概述", "总结", "背景", "注意事项", "优势", "方法", "原理",
                  "现状", "分析", "要点", "内容", "问题", "结论", "汇报", "说明",
                  "情况", "工作", "方案", "措施")
-_VAGUE_WORDS = ("赋能", "抓手", "闭环", "生态", "打法", "组合拳", "颗粒度")
+_VAGUE_WORDS = ("赋能", "抓手", "闭环", "打法", "组合拳", "颗粒度")
 _THANKS_PAT = None  # 惰性编译
 
 
@@ -1300,6 +1370,8 @@ def content_lint(slides):
     warns = []
     for i, s in enumerate(slides, 1):
         title = s.get("title") or s.get("headline") or ""
+        if s.get("type") in ("big_number", "quote") and not title:
+            continue                              # 这两版式的主角是数字/引文
         issue = lint_title(title)
         if issue:
             tag = "建议改写" if not _THANKS_PAT or not _THANKS_PAT.match(title.strip()) else "结尾页建议"
